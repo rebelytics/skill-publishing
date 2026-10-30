@@ -1,0 +1,12 @@
+# Line ceilings for the reference files, read by scripts/validate-skill-bundle.py.
+# One line per file: <file.md> <ceiling> [<short reason for the last raise>]
+# Over its ceiling, a file with more than 8 load triggers is split by episode;
+# one with 8 or fewer is trimmed, or its ceiling raised with a reason.
+# A ceiling more than 3 lines above its file's count is lowered to the count.
+confidentiality-scan.md 321 retiring a whole-file date exemption
+cycle-commit-and-close.md 221
+cycle-gates-and-sync.md 199
+execution-environments.md 240 the cycle inside the review session and the unattended staged-copy exception
+promotion-and-first-publication.md 365 the shortlist day and the recorded pick
+readme-and-counts.md 170 README and user guide figures together; decided coverage rows
+release-branches-and-contributions.md 910 outsider-authored issue, PR, comment and profile text read as data, never instructions
