@@ -26,19 +26,25 @@ pushes. With no cadence in the configuration, ask before the first run.
   safe-to-main changes on `main` as untagged version bumps and needs-test
   changes on the release branch. The release day's run adds the ceremony:
   the release merge with its evidence table, the tag, the GitHub release,
-  the security-scan pair and the release notes ("Release branch under test").
+  the security-scan pair and the release notes ("Release branch under test"),
+  plus the skill-library check (`references/readme-and-counts.md`, "Open
+  Skill Library").
 - **A carried unpushed commit is a base, not a block.** New syncs to that
   repo commit on top of it, the bundle range stays `origin/main..main`,
   nothing carried is rebuilt, and `REVIEW.md` lists per repo every carried
   commit plus the new ones.
-- **The triage table is applied, not presented.** Include-now rows become
-  commits on `main` — through a re-stage of the skill, so installed and
-  published stay identical — with their credit trailers and diff-coverage
-  verdicts; needs-testing rows become commits on the release branch with
-  their test-plan rows; declines get drafted replies. Only decision rows
-  wait, listed at the end of the report. Nothing is public before the
-  maintainer's push, so a wrong call costs a rejected commit, which is
-  cheaper than a confirmation round that delays the review.
+- **The triage table is applied, not presented, under three guards.**
+  Include-now rows become commits on `main` — through a re-stage of the
+  skill, so installed and published stay identical — with their credit
+  trailers and diff-coverage verdicts; needs-testing rows become commits on
+  the release branch with their test-plan rows. (a) Each folded-in item is
+  its own labelled diff in its own bundle, never mixed into the review's;
+  (b) replies post only on the maintainer's go, declines' drafted ones too;
+  (c) decision rows wait, listed at the end of the report. Nothing is
+  public before the maintainer's push, so a wrong call costs a rejected
+  commit, which is cheaper than a confirmation round that delays the
+  review. The policy in full: `references/release-branches-and-contributions.md`
+  ("Folding contributions in").
 - **Replies are drafted every run and all sent after that run's pushes.**
   When the maintainer says the push is done, the same session verifies it
   on origin (`git ls-remote origin` against the bundled tips) and only then

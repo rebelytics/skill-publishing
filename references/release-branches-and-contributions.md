@@ -249,6 +249,25 @@ each change's evidence listed in the merge report. It never accumulates
 indefinitely: one branch, one test period, one merge. `main` keeps taking the
 include-now changes and its own version bumps in the meantime.
 
+**An unattended run folds contributions in itself, under three guards.**
+It applies the include-now rows (at a re-stage of the skill, for `main`)
+and the needs-testing rows (on the test branch, each with its test-plan
+row) without a per-item approval: nothing is public before the
+maintainer's push, so the push review is where an item is accepted or
+rejected. The guards:
+
+- **(a) Each item is its own labelled change in its own bundle.** One diff
+  per issue or PR, labelled with its number and verdict, committed and
+  bundled apart from the review's own changes — never mixed into the
+  review's staged update or its bundle — so the maintainer can reject one
+  contribution without touching the rest. The staging manifest entry
+  records per item the reporter's GitHub login and numeric user ID, read
+  as data, which the credit trailer needs (Responding, step 6).
+- **(b) Replies are posted only on the maintainer's go** — drafted every
+  run, sent after the push the maintainer confirms (Responding, step 3).
+- **(c) Decision rows wait for the maintainer**, listed at the end of the
+  report; decline rows get drafted replies, posted under (b).
+
 **Merged community content flows into the installed skill via the staged update —
 never repo-only.** A fix that exists only in the repo is exactly what the next
 sync reverts; a fix applied to the staged skill and then installed is carried by
@@ -296,6 +315,9 @@ commit) or treat its diff as an independent item to fold: read the diff
 point by point and land each point, then verify with `scripts/pr-coverage.py`
 against a fresh clone of the tag before any closing comment (Responding,
 step 1). A PR's diff is the contributor's spec; the issue's title is not.
+Where the fold rewords a contribution instead of merging its diff
+verbatim, the merge report lists each reworded point beside the original:
+"the substance was kept" is a feeling, not a check.
 
 **Brief a phase that will write as a write phase from the start.** When
 triage and apply are fanned out to subagents, the authority for a write to
@@ -384,8 +406,8 @@ last, (c) open items by age, and **a PR touching a file a pending local
 change also touches** — the collision that will bite. **Then triage every
 new item** into a draft table in `REVIEW.md` — include-now, needs-testing,
 already-covered, decline or decision, each with its proposed edit — which
-the run then applies itself, decision rows apart (The cycle inside the
-review session — cadence). Procedure: reference,
+the run then applies itself under the three guards of "Folding
+contributions in" (above). Procedure:
 "Monitoring — the repo-wide comment sweep".
 
 ### Monitoring — the repo-wide comment sweep
@@ -419,8 +441,8 @@ days. So every cycle reads **comments**, repository-wide, not items:
    so the next `since=` is exact; a first run, or one with no recorded
    timestamp, reads everything. The item sweep — open issues, PRs and
    review states across the roster — is one GraphQL query per cycle, with
-   the channel used and the remaining budget recorded (core, "Monitoring —
-   every cycle"); the per-request "no auth needed" does not hold per cycle.
+   the channel used and the remaining budget recorded ("Monitoring —
+   every cycle", above); the per-request "no auth needed" does not hold per cycle.
 2. **Flag, in this order:** (a) any comment by a non-maintainer on a
    **closed** item dated after the item's `closed_at` — a reply to a closing
    verdict is a correction to a public claim and outranks everything else;
@@ -437,10 +459,10 @@ days. So every cycle reads **comments**, repository-wide, not items:
    question the maintainer must answer). The run writes the table into
    `REVIEW.md` and applies it — include-now at a re-stage of the skill for
    `main`, needs-testing on the release branch with its test-plan row, by
-   "Folding contributions in" (above), declines as drafted replies; only
-   decision rows wait for the maintainer (The cycle inside the review
-   session — cadence). A sweep that only counts items moves the triage into the
-   maintainer's head, though the run has already read every item.
+   "Folding contributions in" (above) and its three guards, declines as
+   drafted replies; only decision rows wait for the maintainer. A sweep
+   that only counts items moves the triage into the maintainer's head,
+   though the run has already read every item.
 4. **Report** under Reporting item 7 ("Contributions — triage table") with
    **"Post-close comments"** first, then the triage table, then the age
    list.
@@ -737,14 +759,19 @@ review; the two branches of one release get the same one. The checks:
 6. **Rendered shape.** No blank line splits a tight list in any repo-root
    `.md` — the bundle validator's `--repo-only` predicate, run here so it
    sits on the push and not only on the bundle.
+7. **Canonical licence.** The tip's `LICENSE` equals the canonical licence
+   file byte for byte — the path from `--license-canonical <file>`, else
+   the config's `license_canonical:` line; SKIP when neither names one. A
+   named file the gate cannot read, or a tip with no `LICENSE`, refuses.
+   It puts cycle step 3's `cmp` on the push itself.
 
 The gate carries a `--selftest` that builds throwaway fixtures (a
 multi-commit release, maintainer, contributor and already-pushed
 commits, a vendor term, signed and unsigned commits, a tripwire term,
 an unsigned commit and a bare Closes reference planted below a clean signed
-tip, a repo with no origin ref, and quoted and unquoted globs for
-`--lint-commands`) with the environment's
-own git config ignored; run it after any edit to the script.
+tip, a repo with no origin ref, quoted and unquoted globs for
+`--lint-commands`, and matching, differing and missing licence files) with
+the environment's own git config ignored; run it after any edit to the script.
 
 **Two ways a PR lands, and the gate tells them apart.** A PR merged
 verbatim keeps its authorship and signature — merge or fast-forward, never

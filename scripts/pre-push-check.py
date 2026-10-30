@@ -86,6 +86,14 @@ are unpushed), each offender named by sha:
                        refuses unless --allow-mixed-trailers.
   6. rendered-shape    No blank line splits a tight list in any repo-root
                        `.md` (same predicate as the bundle validator).
+  7. license-canonical The tip commit's `LICENSE` equals the canonical
+                       licence file byte for byte. The path comes from
+                       --license-canonical, else the config's
+                       `license_canonical:` line (a relative path is tried
+                       against the config's folder, its parent and the
+                       working directory). SKIP when neither names one; a
+                       named file that cannot be read, or a tip with no
+                       `LICENSE`, refuses.
 
 Usage:
   pre-push-check.py --config CONFIG.md [--repo DIR] [--target-branch main]
@@ -93,6 +101,7 @@ Usage:
                     [--release-body FILE [--release-range A..B | --single-commit]]
                     [--commit REF] [--pre-bundle] [--repo-name NAME]
                     [--allow-mixed-trailers] [--allow-unverifiable-signature]
+                    [--license-canonical FILE]
   pre-push-check.py --lint-commands REVIEW.md [FILE ...]
   pre-push-check.py --lint-commands=inline REVIEW.md [FILE ...]
   pre-push-check.py --selftest
@@ -118,6 +127,8 @@ in the repository that pushes, chained `&&` before the push.
 Config values read beside the term block (Maintainer table rows):
   | Commit email | `...` |     the maintainer identity (check 3 scope)
   | Signing key  | `SHA256:...` or a GPG fingerprint |   check 4 at push
+and one line anywhere in the config (Repo conventions):
+  `license_canonical:` `<path>`                         check 7
 """
 import argparse, base64, hashlib, pathlib, re, struct, subprocess, sys
 
@@ -759,6 +770,64 @@ def check_rendered_shape(rep, repo):
     rep.result("6 rendered-shape", "FAIL" if hits else "PASS", ev + hits)
 
 
+LICENSE_CANONICAL_RE = re.compile(
+    r"^[\s>*-]*`?license_canonical:`?\s*`([^`]+)`|^[\s>*-]*license_canonical:\s*(\S+)",
+    re.M)
+
+
+def load_license_canonical(config_path):
+    """(path, where it came from) for the config's `license_canonical:` line,
+    or (None, None). A relative path is resolved against the config's
+    folder, its parent (the workspace folder) and the working directory, in
+    that order; the first that exists wins, else the first candidate is
+    returned so the check can name what it looked for."""
+    text = pathlib.Path(config_path).read_text(encoding="utf-8")
+    m = LICENSE_CANONICAL_RE.search(text)
+    if not m:
+        return None, None
+    raw = (m.group(1) or m.group(2)).strip()
+    p = pathlib.Path(raw).expanduser()
+    if p.is_absolute():
+        return p, "config license_canonical"
+    base = pathlib.Path(config_path).resolve().parent
+    cands = [base / p, base.parent / p, pathlib.Path.cwd() / p]
+    return next((c for c in cands if c.is_file()), cands[0]), "config license_canonical"
+
+
+def check_license_canonical(rep, repo, commit, canonical, source):
+    name = "7 license-canonical"
+    if canonical is None:
+        rep.result(name, "SKIP", ["no canonical licence path configured "
+                                  "(config `license_canonical:` or --license-canonical)"])
+        return
+    canonical = pathlib.Path(canonical)
+    ev = [f"canonical: {canonical} ({source})"]
+    if not canonical.is_file():
+        rep.result(name, "FAIL", ev + ["the canonical file cannot be read — "
+                                       "a configured check that cannot run refuses"])
+        return
+    want = canonical.read_bytes()
+    r = subprocess.run(["git", "-C", str(repo), "show", f"{commit}:LICENSE"],
+                       capture_output=True)
+    if r.returncode != 0:
+        rep.result(name, "FAIL", ev + [f"no LICENSE in {commit[:12]}"])
+        return
+    got = r.stdout
+    def digest(b):
+        return f"{len(b)} bytes, sha256 {hashlib.sha256(b).hexdigest()[:16]}"
+    ev += [f"LICENSE @ {commit[:12]}: {digest(got)}",
+           f"canonical file: {digest(want)}"]
+    if got == want:
+        rep.result(name, "PASS", ev)
+        return
+    a, b = got.splitlines(), want.splitlines()
+    line = next((i + 1 for i, (x, y) in enumerate(zip(a, b)) if x != y),
+                min(len(a), len(b)) + 1)
+    rep.result(name, "FAIL", ev + [f"first difference at line {line} "
+                                   f"({len(a)} lines vs {len(b)} canonical); "
+                                   "copy the canonical file over LICENSE"])
+
+
 SHELL_FENCES = {"", "bash", "sh", "zsh", "shell", "console", "shell-session"}
 GLOB_CHARS = set("?*[]")
 LONE_WORDS = {"[", "]", "[[", "]]"}       # test-command brackets, not patterns
@@ -891,7 +960,8 @@ def selftest():
     tripwire term, an unsigned commit and a bare Closes ref planted below the
     tip (the range unit of checks 1, 3 and 4), and a repo with no origin ref
     (scope = every commit reachable from the tip), and the command-block
-    lint (unquoted glob metacharacters in a handed-over shell block). Git
+    lint (unquoted glob metacharacters in a handed-over shell block), and
+    the canonical-licence comparison (check 7). Git
     runs with the global and system config ignored, so the environment's own
     signing default cannot leak into the fixture."""
     import contextlib, io, os, tempfile
@@ -1191,6 +1261,43 @@ def selftest():
                                          [pr_c], "", me,
                                          *pr_heads(pathlib.Path(d, "fresh-repo"))),
                {"4 signature": "FAIL"}, "no contributor carve-out this run")
+        # Check 7: LICENSE against the canonical file, read from the tip.
+        canon = pathlib.Path(d, "LICENSE.canonical.txt")
+        canon.write_bytes(b"Licence text\nline two\n")
+        (repo / "LICENSE").write_bytes(canon.read_bytes())
+        git(repo, "add", "LICENSE")
+        git(repo, "commit", "-q", "-m", "Add the licence")
+        lic_ok = git(repo, "rev-parse", "HEAD").strip()
+        (repo / "LICENSE").write_bytes(b"Licence text\nline two \n")
+        git(repo, "add", "LICENSE")
+        git(repo, "commit", "-q", "-m", "Touch the licence")
+        lic_bad = git(repo, "rev-parse", "HEAD").strip()
+        expect("licence: byte-identical LICENSE passes", lambda r:
+               check_license_canonical(r, repo, lic_ok, canon, "flag"),
+               {"7 license-canonical": "PASS"})
+        expect("licence: one trailing space refuses, line named", lambda r:
+               check_license_canonical(r, repo, lic_bad, canon, "flag"),
+               {"7 license-canonical": "FAIL"}, "first difference at line 2")
+        expect("licence: no path configured is a SKIP line", lambda r:
+               check_license_canonical(r, repo, lic_ok, *load_license_canonical(cfg)),
+               {"7 license-canonical": "SKIP"})
+        expect("licence: a configured path that is missing refuses", lambda r:
+               check_license_canonical(r, repo, lic_ok,
+                                       pathlib.Path(d, "nope.txt"), "flag"),
+               {"7 license-canonical": "FAIL"}, "cannot be read")
+        expect("licence: a tip without LICENSE refuses", lambda r:
+               check_license_canonical(r, repo, base, canon, "flag"),
+               {"7 license-canonical": "FAIL"}, "no LICENSE in")
+        cfg2 = pathlib.Path(d, "ws", "skill-publishing", "config.md")
+        cfg2.parent.mkdir(parents=True)
+        cfg2.write_text("- `license_canonical:` `skill-publishing/LICENSE.txt`"
+                        " — the one licence text\n", encoding="utf-8")
+        pathlib.Path(cfg2.parent, "LICENSE.txt").write_bytes(canon.read_bytes())
+        expect("licence: the config line resolves against the workspace folder",
+               lambda r: check_license_canonical(
+                   r, repo, lic_ok, *load_license_canonical(cfg2)),
+               {"7 license-canonical": "PASS"}, "config license_canonical")
+
         # Lint mode: glob metacharacters in a handed-over command block.
         def lint(text):
             f = pathlib.Path(d, "REVIEW.md")
@@ -1293,6 +1400,9 @@ def main():
                     "(default: origin URL basename, else the directory name)")
     ap.add_argument("--allow-mixed-trailers", action="store_true")
     ap.add_argument("--allow-unverifiable-signature", action="store_true")
+    ap.add_argument("--license-canonical", metavar="FILE",
+                    help="canonical licence file LICENSE must equal byte for "
+                         "byte (overrides the config's license_canonical:)")
     ap.add_argument("--pre-bundle", action="store_true",
                     help="sandbox run before bundling: check 4 asserts the "
                          "commits are UNSIGNED (the push-side run never passes this)")
@@ -1346,6 +1456,11 @@ def main():
         rep.result("5 credit-symmetry", "SKIP",
                    ["no --release-body; required at release time"])
     check_rendered_shape(rep, repo)
+    if a.license_canonical:
+        canonical, source = pathlib.Path(a.license_canonical), "--license-canonical"
+    else:
+        canonical, source = load_license_canonical(a.config)
+    check_license_canonical(rep, repo, sha, canonical, source)
     print("RESULT: " + ("REFUSED — do not push" if rep.failed else "clear to push"))
     sys.exit(1 if rep.failed else 0)
 
