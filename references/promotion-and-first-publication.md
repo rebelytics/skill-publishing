@@ -15,7 +15,7 @@ Load triggers: after the sync cycle, before ranking candidates or presenting a s
 skill-name/
 ├── SKILL.md       ← the core: rules that fire every session, plus the pointer list
 ├── references/    ← at least one file loaded on demand, named from the core
-├── README.md      ← ~30 lines, hard cap ~250 words
+├── README.md      ← aim for ~350 words; a target, not a gate
 └── LICENSE
 ```
 
@@ -115,10 +115,13 @@ one staged update at the live skill:
    improved by its community of users") and the licence section with the
    summary link.
 
-The repository string is byte-identical at every site the list names.
-Before the update is staged, grep the skill directory for the old shape's
-phrases — the long-form credit in headers, the source without its scheme
-— and grep the synced tree again at the pre-flight.
+**At a skill's ceilings the line-neutral forms are the default:** the credit
+appended to the reference file's existing header sentence, a docstring line in
+scripts, the feedback section paid for by the preamble item 2 removes — never a
+ceiling raise for attribution. The repository string is byte-identical at every
+site the list names. Before the update is staged, grep the skill directory for
+the old shape's phrases — the long-form credit in headers, the source without
+its scheme — and grep the synced tree again at the pre-flight.
 
 ### Git identity
 
@@ -234,8 +237,10 @@ review session.
 ### Phase 2 — interactive (when the maintainer joins the run's conversation)
 
 The maintainer picks up to the **promotion cap** from the configuration file
-(default one); the publication task reads the pick from `registry.md` and,
-with no pick recorded, stops and reports. Per pick, run the first-publication pass:
+(default one); the publication task reads the pick from `registry.md` and, with
+no pick recorded, stops and reports. A pick line may record an exception to the
+cap in so many words; the task builds what the line says. Per pick, run the
+first-publication pass:
 
 - Confidentiality layers 2–5 incl. the cross-product re-identifiability
   sweep; client-identifier scan against the configuration file's tripwire
@@ -259,8 +264,8 @@ with no pick recorded, stops and reports. Per pick, run the first-publication pa
   (`cmp`; Licence, above). `metadata.source` is
   `https://github.com/<owner>/<repo>` — with the scheme — the one form,
   byte-identical wherever the string appears. Extractive README
-  (~30 lines, no release notes); frontmatter description ≤1024 chars
-  (warn >900); version `1.0.0`.
+  (~350 words, a target; no release notes); frontmatter description
+  ≤1024 chars (warn >900); version `1.0.0`.
 - Discovery metadata where the discovering system reads it, never in the
   `SKILL.md` frontmatter (no keywords or tags key — it fails the spec
   validator and nothing reads it). No plugin manifest unless the maintainer
@@ -273,20 +278,23 @@ with no pick recorded, stops and reports. Per pick, run the first-publication pa
 - Build the repo in the sandbox: `git init`, pinned identity, initial commit
   on `main`; ship as a bundle; materialise the review clone at
   `skill-publishing/repos/<name>` from the bundle.
-- `REVIEW.md` gets per-pick instructions, built from the repo conventions in the
-  configuration file: create the empty public GitHub repo (`gh repo create
-  <account>/<name> --public`, or via the browser), add the remote, push.
-  **First-push bundles include HEAD** (`git bundle create <repo>-<date>.bundle
-  HEAD main`): a heads-only bundle gives `git clone` no HEAD to follow, so it
-  fetches the objects, checks nothing out and leaves an unborn `master`, and
-  the `&&` chain after it half-ran across retries. **The maintainer's setup
-  line never depends on HEAD:** `git init -b main <repo> && cd <repo> && git
-  fetch <bundle> main && git reset --hard FETCH_HEAD && git remote add origin
-  <url>`, then the gate-chained push. Update
-  `registry.md` to `published` and stage the install bundle if publication
-  changed the skill (restructure/cleanups must flow back to the installed copy),
-  appending its `skill-updates/PENDING.md` entry in the same step
-  (`SKILL.md`, Workspace state).
+- The per-pick instructions go to the task's own file,
+  `skill-publishing/REVIEW-first-publication-<date>.md`, with one pointer line
+  to it in `REVIEW.md` that every regeneration copies verbatim (core, cycle step
+  7) — the review session regenerates `REVIEW.md` in the same hour and drops a
+  section it did not write. Built from the repo conventions in the configuration
+  file: create the empty public GitHub repo (`gh repo create <account>/<name>
+  --public`, or via the browser), add the remote, push. **First-push bundles
+  include HEAD** (`git bundle create <repo>-<date>.bundle HEAD main`): a
+  heads-only bundle gives `git clone` no HEAD to follow, so it fetches the
+  objects, checks nothing out and leaves an unborn `master`, and the `&&` chain
+  after it half-ran across retries. **The maintainer's setup line never depends
+  on HEAD:** `git init -b main <repo> && cd <repo> && git fetch <bundle> main &&
+  git reset --hard FETCH_HEAD && git remote add origin <url>`, then the
+  gate-chained push. Update `registry.md` to `published` and stage the install
+  bundle if publication changed the skill (restructure/cleanups must flow back
+  to the installed copy), appending its `skill-updates/PENDING.md` entry in the
+  same step (`SKILL.md`, Workspace state).
 
 Nothing in Phase 2 is pushed by the session — the maintainer pushes, as always.
 

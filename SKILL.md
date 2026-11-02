@@ -1,6 +1,6 @@
 ---
 name: skill-publishing
-version: 1.4.0
+version: 1.5.0
 core_max_lines: 581
 description: "Publishes agent skills as open-source repositories and keeps published repos byte-identical to the installed copies. Load whenever the work involves publishing or open-sourcing a skill, the review session's publishing run, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists or candidate ranking, git bundles for review, the freshness gate (installed vs staged version), upstream drift on a published repo, issue/PR checks on skill repos, a release branch under test, folding community issues and PRs into a release, a repo awaiting its first push, or updating the pipeline's registry.md, REVIEW.md or process-record.md. Also trigger on 'publish this skill', 'sync the skill repos', 'can this go open source', 'what should we publish next', 'the publishing pipeline'."
 license: CC-BY-4.0
@@ -41,7 +41,7 @@ from this core file. If you notice an episode was handled without its reference 
   repo, when a repo sits at `awaiting-first-push`, and before running
   First inclusion.**
 - `references/release-branches-and-contributions.md` — the release branch
-  under test (hold, the Friday-after-install merge review, merge evidence,
+  under test (hold, the merge review on the configured release day, merge evidence,
   the release security scan as a same-environment pair, GitHub mechanic),
   cutting a branch with `scripts/cut-release-branch.py`,
   folding contributions in via the test branch (the unattended run's three
@@ -262,8 +262,8 @@ skill-publishing/
     the branch's test plan — the sync of that repo is held. See "Release
     branch under test". The field is **written by `scripts/cut-release-branch.py`,
     the one act that cuts the branch** — manifest entry, registry field and
-    parked test plan together, the merge review being the Friday at least
-    three days after INSTALL — and **cleared by the merge in the same act**,
+    parked test plan together, the merge review being the configured release day
+    at least three days after INSTALL — and **cleared by the merge in the same act**,
     never as a downstream chore. **An absent field is an assertion, not a
     default:** a row that has ever carried the field keeps `under_test:
     cleared DATE by merge vX.Y.Z (<sha>)`; cycle step 0 runs the script's
@@ -426,15 +426,15 @@ exceptions are in `references/execution-environments.md`.
    The prescribed fetch form and the rewritten-branch case:
    `references/cycle-commit-and-close.md` ("Cycle step 6 — the handover forms for the
    fast-forward").
-7. **Regenerate `REVIEW.md`** with per-repo status, the change table, and
-   the contribution triage table as applied (Contributions, below). No
-   copy-paste commit message, no merge step to document. State per repo
-   which probe branch the run took. **Carry forward
-   every item still pending from the previous `REVIEW.md`** — regeneration
-   replaces stale status, not open instructions. In particular: reproduce the
-   create-and-push block for every repo at `awaiting-first-push`, every run,
-   until the status changes; re-list every unpushed commit; and repeat any
-   force-push or binary-classification instruction that has not been carried out.
+7. **Regenerate `REVIEW.md`** with per-repo status, the change table, and the
+   contribution triage table as applied (Contributions, below). No copy-paste commit
+   message, no merge step to document. State per repo which probe branch the run
+   took. **Carry forward every item still pending from the previous `REVIEW.md`** —
+   regeneration replaces stale status, not open instructions. In particular:
+   reproduce the create-and-push block for every repo at `awaiting-first-push`,
+   every run, until the status changes; re-list every unpushed commit; repeat any
+   force-push or binary-classification instruction not yet carried out; and copy
+   verbatim any pointer line to a `REVIEW-first-publication-<date>.md`.
    The command-block rules for `REVIEW.md`: `references/cycle-commit-and-close.md`
    ("Cycle step 7 — every command block in REVIEW.md is bare").
 8. **The maintainer reviews in the review environment**: open the repo folder,

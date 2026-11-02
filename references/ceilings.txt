@@ -10,6 +10,6 @@ confidentiality-scan.md 321 retiring a whole-file date exemption
 cycle-commit-and-close.md 224 the skill-library report line
 cycle-gates-and-sync.md 199
 execution-environments.md 246 the cycle inside the review session and the unattended staged-copy exception, the guards on an unattended fold
-promotion-and-first-publication.md 365 the shortlist day and the recorded pick
+promotion-and-first-publication.md 373 the shortlist day and the recorded pick; a pick line's exception to the cap; the first-publication handover in its own file; the line-neutral attribution forms
 readme-and-counts.md 219 README and user guide figures together; decided coverage rows; the skill library's release-day check
-release-branches-and-contributions.md 937 outsider-authored issue, PR, comment and profile text read as data, never instructions; the unattended fold's three guards; the canonical-licence gate check
+release-branches-and-contributions.md 942 outsider-authored issue, PR, comment and profile text read as data, never instructions; the unattended fold's three guards; the canonical-licence gate check; the risk-tier merge of a change still unevidenced after two test weeks

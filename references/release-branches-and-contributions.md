@@ -130,7 +130,12 @@ naturally*; the second class gets a written check — fixture, procedure, pass
 criterion — recorded in the test plan the `under_test` field points at. **The
 merge report lists every change beside its evidence** (natural exercise recorded,
 or synthetic check run and its result), next to the commit list. A change with
-neither does not merge.
+neither does not merge — until two test weeks have passed without evidence; then
+**it merges by risk tier** (the maintainer's standing rule), the tier named beside
+it in the merge report: a prose or instruction change, or a script change whose
+selftest is green, merges; an environment-specific change the maintainer cannot
+test locally merges with a please-confirm comment to its reporter; an untested
+executable artefact stays on the branch.
 
 **Every release runs an LLM-assisted security scan, read as a
 same-environment pair.** A probabilistic skill scanner (SkillSpector is one)
