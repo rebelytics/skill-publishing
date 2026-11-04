@@ -14,9 +14,11 @@ case adding — that is the signal to act on, not "the rule was not followed".
 
 Checks, on the tip commit of --repo (default `.`) — except checks 1, 3 and
 4, whose unit is the unpushed range: every commit in `origin/<target>..<commit>`
-(every commit reachable from the tip when no origin ref exists — a repo
-awaiting its first push, or a clone made from a bundle — since all of them
-are unpushed), each offender named by sha:
+— or, when `origin/<target>` does not exist (the first push of a new branch,
+a repo awaiting its first push, a clone made from a bundle), every commit
+reachable from the tip and from no origin ref (`<commit> --not
+--remotes=origin`; with no origin ref at all, every ancestor), since those
+are what the push publishes — each offender named by sha:
 
   1. closing-keywords  Every `#N` in the Closes block of every commit in
                        scope carries its own `closes`/`fixes`/`resolves` —
@@ -84,6 +86,9 @@ are unpushed), each offender named by sha:
                        (a squashed release). Every credit trailer uses one
                        class — a `Reported-by:` beside `Co-authored-by:`
                        refuses unless --allow-mixed-trailers.
+                       --draft-thanks A..B prints the Thanks line from the
+                       same set — one source, two renderings — for the
+                       release-notes file; check 5 still runs on the result.
   6. rendered-shape    No blank line splits a tight list in any repo-root
                        `.md` (same predicate as the bundle validator).
   7. license-canonical The tip commit's `LICENSE` equals the canonical
@@ -102,6 +107,7 @@ Usage:
                     [--commit REF] [--pre-bundle] [--repo-name NAME]
                     [--allow-mixed-trailers] [--allow-unverifiable-signature]
                     [--license-canonical FILE]
+  pre-push-check.py --draft-thanks A..B [--repo DIR] [--config CONFIG.md]
   pre-push-check.py --lint-commands REVIEW.md [FILE ...]
   pre-push-check.py --lint-commands=inline REVIEW.md [FILE ...]
   pre-push-check.py --selftest
@@ -224,27 +230,40 @@ def derive_repo_name(repo):
 
 def scope_commits(repo, sha, target_branch):
     """Commits not yet on origin/<target>: the ones this run can still change.
-    Without that ref (a repo awaiting its first push, a clone made from a
-    bundle) nothing is pushed yet, so every commit reachable from the tip —
-    a tip-only fallback would wave through every commit below it."""
+    Without that ref (the first push of a new branch, a repo awaiting its
+    first push, a clone made from a bundle) the scope is what the push
+    publishes: every commit reachable from the tip and from no origin ref —
+    history already public on another branch is not re-read, and with no
+    origin ref at all that is every ancestor (a tip-only fallback would wave
+    through every commit below it)."""
     base = f"origin/{target_branch}"
     r = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "-q",
                         base], capture_output=True, text=True)
     if r.returncode != 0:
-        shas = git(repo, "rev-list", sha).split()
-        return shas, (f"{sha[:12]} and its ancestors ({len(shas)} commits; "
-                      f"no {base} ref: nothing is pushed yet)")
+        shas = git(repo, "rev-list", sha, "--not", "--remotes=origin").split()
+        return shas, (f"{sha[:12]} --not --remotes=origin ({len(shas)} commits; "
+                      f"no {base} ref: the commits on no origin ref)")
     shas = git(repo, "rev-list", f"{base}..{sha}").split()
     return shas, f"{base}..{sha[:12]} ({len(shas)} commits)"
 
 
-def rebase_upstream(repo, target_branch):
-    """What a rewrite of the whole scope rebases onto: origin/<target>, or
-    `--root` when that ref does not exist (git rebase refuses the name)."""
+def rebase_upstream(repo, target_branch, sha="HEAD"):
+    """What a rewrite of the whole scope rebases onto: origin/<target>; else
+    the parent of the oldest commit on no origin ref; else `--root` (git
+    rebase refuses a missing name)."""
     base = f"origin/{target_branch}"
     r = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "-q",
                         base], capture_output=True, text=True)
-    return base if r.returncode == 0 else "--root"
+    if r.returncode == 0:
+        return base
+    scope = git(repo, "rev-list", sha, "--not", "--remotes=origin").split()
+    if scope:
+        p = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify",
+                            "-q", scope[-1] + "^"], capture_output=True,
+                           text=True)
+        if p.returncode == 0:
+            return p.stdout.strip()[:12]
+    return "--root"
 
 
 class Report:
@@ -584,7 +603,7 @@ def check_signature(rep, repo, commit, target_branch, allow_unverifiable,
                 + ", ".join(c[:12] for c in signed),
                 "pin and rebuild: git config commit.gpgsign false && git config "
                 "tag.gpgsign false && git rebase --force-rebase --no-gpg-sign "
-                + rebase_upstream(repo, target_branch)])
+                + rebase_upstream(repo, target_branch, commit)])
         else:
             rep.result("4 signature", "PASS", ev + ["no commit carries a signature"])
         return
@@ -613,7 +632,7 @@ def check_signature(rep, repo, commit, target_branch, allow_unverifiable,
     elif len(unsigned) > 1 or (unsigned and unsigned[0] != commits[0]):
         ev.append("sign every commit in the range before pushing to main: "
                   "git rebase --force-rebase -S "
-                  f"{rebase_upstream(repo, target_branch)} && re-run this check")
+                  f"{rebase_upstream(repo, target_branch, commit)} && re-run this check")
     elif unsigned:
         ev.append("sign before pushing to main: "
                   "git commit --amend --no-edit -S && re-run this check")
@@ -699,8 +718,9 @@ def release_commits(repo, sha, release_range, single):
         f"range {prev}..{sha[:12]} (previous annotated tag to --commit)"
 
 
-def check_credit_symmetry(rep, repo, commits, label, body_path, allow_mixed,
-                          maintainer_email="", heads=None):
+def credit_sources(repo, commits, maintainer_email="", heads=None):
+    """The credit set check 5 compares and --draft-thanks prints: trailer
+    logins by class, the AI-tool trailer count, verbatim PR authors."""
     by_class, ai, authors = {}, 0, {}
     for c in commits:
         _, trailers = split_message(git(repo, "log", "-1", "--format=%B", c))
@@ -711,6 +731,25 @@ def check_credit_symmetry(rep, repo, commits, label, body_path, allow_mixed,
         if n:
             login, verified = pr_author_login(repo, c, n, heads)
             authors.setdefault(login.lower(), (n, verified))
+    return by_class, ai, authors
+
+
+def draft_thanks(repo, commits, maintainer_email="", heads=None):
+    """The release notes' Thanks line, from the same set check 5 reads."""
+    by_class, _, authors = credit_sources(repo, commits, maintainer_email, heads)
+    names = sorted(set().union(*by_class.values(), set(authors)))
+    if not names:
+        return "", by_class, authors
+    at = ["@" + n for n in names]
+    return ("Thanks to " + (at[0] if len(at) == 1 else
+                            ", ".join(at[:-1]) + " and " + at[-1]) + "."), \
+        by_class, authors
+
+
+def check_credit_symmetry(rep, repo, commits, label, body_path, allow_mixed,
+                          maintainer_email="", heads=None):
+    by_class, ai, authors = credit_sources(repo, commits, maintainer_email,
+                                           heads)
     body = pathlib.Path(body_path).read_text(encoding="utf-8")
     mentions = {m.lower() for m in MENTION_RE.findall(body)}
     trailered = set().union(*by_class.values()) if by_class else set()
@@ -959,7 +998,10 @@ def selftest():
     pre-bundle no-signature assertion, the signing-key comparison, a
     tripwire term, an unsigned commit and a bare Closes ref planted below the
     tip (the range unit of checks 1, 3 and 4), and a repo with no origin ref
-    (scope = every commit reachable from the tip), and the command-block
+    (scope = every commit reachable from the tip), a new branch with no
+    origin/<branch> ref on a main whose public history carries a check-3 hit
+    (scope = the commits on no origin ref), the --draft-thanks line, and the
+    command-block
     lint (unquoted glob metacharacters in a handed-over shell block), and
     the canonical-licence comparison (check 7). Git
     runs with the global and system config ignored, so the environment's own
@@ -1040,6 +1082,16 @@ def selftest():
         c2, l2 = release_commits(repo, tip, "v1.0.0..v1.1.0", False)
         expect("explicit --release-range", lambda r: check_credit_symmetry(
             r, repo, c2, l2, body, False), {"5 credit-symmetry": "PASS"})
+        drafted = pathlib.Path(d, "drafted.md")
+        drafted.write_text(draft_thanks(repo, c2)[0] + "\n", encoding="utf-8")
+        expect("--draft-thanks: the drafted line passes check 5",
+               lambda r: check_credit_symmetry(r, repo, c2, l2, drafted, False),
+               {"5 credit-symmetry": "PASS"})
+        ok = drafted.read_text() == "Thanks to @alice and @bob.\n"
+        print(f"[{'PASS' if ok else 'FAIL'}] --draft-thanks: the line names "
+              f"every trailer login ({drafted.read_text().strip()!r})")
+        if not ok:
+            fails.append("--draft-thanks: the line names every trailer login")
 
         ai_msg = ("Sync the skill\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n"
                   "Claude-Session: https://example.invalid/session_x")
@@ -1184,6 +1236,32 @@ def selftest():
                    r, fresh, fresh_shas[-1], "main", True, False,
                    scope_commits(fresh, fresh_shas[-1], "main")[0], fp),
                {"4 signature": "FAIL"}, "git rebase --force-rebase -S --root")
+        # First push of a new branch: main's public history carries a known
+        # check-3 hit; the branch's own commits are clean. No
+        # origin/<branch> ref, so the scope is the commits on no origin ref.
+        git(fresh, "update-ref", "refs/remotes/origin/main", fresh_shas[-1])
+        git(fresh, "checkout", "-q", "-b", "release/v2")
+        for msg in ("Fold a report", "Bump version to 2.0.0"):
+            pathlib.Path(fresh, "SKILL.md").write_text(msg + "\n")
+            git(fresh, "add", "SKILL.md")
+            git(fresh, "commit", "-q", "-m", msg)
+        br_tip = git(fresh, "rev-parse", "HEAD").strip()
+        br_scope, br_label = scope_commits(fresh, br_tip, "release/v2")
+
+        def new_branch(r):
+            print("commits in scope: " + br_label)
+            check_confidentiality(r, "Bump version to 2.0.0", terms, [],
+                                  "fresh-repo", fresh, br_scope,
+                                  values.get("commit email", ""))
+        expect("new branch, no origin/<branch>: a hit already on origin/main "
+               "is out of scope", new_branch, {"3 confidentiality": "PASS"},
+               "--not --remotes=origin (2 commits")
+        hint = rebase_upstream(fresh, "release/v2", br_tip)
+        ok = hint == fresh_shas[-1][:12]
+        print(f"[{'PASS' if ok else 'FAIL'}] new branch: a rewrite hint "
+              f"rebases onto the branch point ({hint})")
+        if not ok:
+            fails.append("new branch: a rewrite hint rebases onto the branch point")
 
         # Verbatim contributions: a bare repo stands in for origin and
         # carries refs/pull/N/head; a foreign-authored, foreign-signed
@@ -1406,6 +1484,9 @@ def main():
     ap.add_argument("--pre-bundle", action="store_true",
                     help="sandbox run before bundling: check 4 asserts the "
                          "commits are UNSIGNED (the push-side run never passes this)")
+    ap.add_argument("--draft-thanks", metavar="A..B",
+                    help="print the release notes' Thanks line from the credit "
+                         "trailers (and verbatim PR authors) over A..B, then exit")
     if "--selftest" in sys.argv[1:]:
         selftest()
     # `--lint-commands=inline FILE...` is the documented spelling of the
@@ -1423,8 +1504,22 @@ def main():
         print("RESULT: " + ("REFUSED — quote before handover" if rep.failed
                             else "clear to hand over"))
         sys.exit(1 if rep.failed else 0)
+    if a.draft_thanks:
+        repo = pathlib.Path(a.repo)
+        commits = git(repo, "rev-list", a.draft_thanks).split()
+        me = load_config_values(a.config).get("commit email", "") \
+            if a.config else ""
+        heads, note = pr_heads(repo)
+        line, by_class, authors = draft_thanks(repo, commits, me, heads)
+        print(f"draft-thanks: range {a.draft_thanks}, {len(commits)} commits; "
+              f"credit trailers: {sum(len(v) for v in by_class.values())}; "
+              f"verbatim PR authors: {len(authors)}"
+              + (f"; {note}" if note else ""), file=sys.stderr)
+        print(line or "(no credit trailers in range: no Thanks line)")
+        sys.exit(0)
     if not a.config:
-        ap.error("--config is required (except with --lint-commands)")
+        ap.error("--config is required (except with --lint-commands "
+                 "or --draft-thanks)")
 
     repo = pathlib.Path(a.repo)
     sha = git(repo, "rev-parse", a.commit).strip()

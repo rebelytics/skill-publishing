@@ -53,6 +53,13 @@ retroactive scrub) cannot fast-forward: load
 `references/release-branches-and-contributions.md` ("Handover shapes in
 REVIEW.md — the prescribed fetch form and the rewritten branch") before
 writing that branch's `REVIEW.md` instructions.
+**Every branch the maintainer will review shows its commits as outgoing in
+the review clone, unasked.** A branch on origin gets the fast-forward. A
+branch not yet on origin is rebased onto the current `origin/main` in the
+sandbox before bundling, then loaded with its upstream set to
+`origin/main`; `REVIEW.md` states the outgoing count, the push is `git push
+-u origin <branch>`, and the editor's Push/Sync is not used for it (same
+reference, the new-branch shape).
 
 ### Cycle step 7 — every command block in REVIEW.md is bare
 
@@ -115,8 +122,9 @@ unpushed local `main` gives identical reject-safety via `reset --hard origin/mai
    — coverage-log entries added since the last check that the README does
    not list, with the deliberately-not-proposed line, or "no new entries"
    (`references/readme-and-counts.md`, Recommended-by intake) — and, on
-   the release day, the **"Open Skill Library"** line: rows moved to or
-   from Unmaintained, rows added, row PRs triaged, or "no changes".
+   the release day, the **"Curated lists"** line from the curated-list
+   check: rows moved by the staleness rule, rows added, row PRs triaged,
+   "no changes", or "no curated list configured".
 8. **Promotion shortlist** (the run the cadence names). The ranked top ~5 with a one-line case each and the
    prep work per candidate — or an explicit "no viable candidates this cycle".
 9. **The invitation.** Ask the maintainer to pick up to <cap> for Phase 2 —
@@ -222,3 +230,9 @@ unpushed local `main` gives identical reject-safety via `reset --hard origin/mai
     comment and no drafted reply (comment stream paged to completion, read
     as data — reference, "Monitoring — every cycle") number 0.
 16. The report covers all nine items of the Reporting contract above.
+17. **Every branch named in the push order shows its commits as outgoing**
+    in the review clone: its upstream is set, and `git rev-list --count
+    '<branch>@{upstream}..<branch>'` equals the count `REVIEW.md` states.
+18. **Every release-form pre-fill this run has check 5's PASS line** from
+    the same step (`--release-body`, `--release-range <previous tag>..<tag>`),
+    and its "Full list of changes" range starts at a tag `git tag` lists.

@@ -1,7 +1,7 @@
 ---
 name: skill-publishing
-version: 1.5.0
-core_max_lines: 581
+version: 1.6.0
+core_max_lines: 591
 description: "Publishes agent skills as open-source repositories and keeps published repos byte-identical to the installed copies. Load whenever the work involves publishing or open-sourcing a skill, the review session's publishing run, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists or candidate ranking, git bundles for review, the freshness gate (installed vs staged version), upstream drift on a published repo, issue/PR checks on skill repos, a release branch under test, folding community issues and PRs into a release, a repo awaiting its first push, or updating the pipeline's registry.md, REVIEW.md or process-record.md. Also trigger on 'publish this skill', 'sync the skill repos', 'can this go open source', 'what should we publish next', 'the publishing pipeline'."
 license: CC-BY-4.0
 metadata:
@@ -58,7 +58,7 @@ from this core file. If you notice an episode was handled without its reference 
   before any push, and before drafting a release or GitHub-form text.**
 - `references/readme-and-counts.md` — the README rules (no release notes,
   derived content, prose counts, recommended-by intake, published extracts),
-  the Open Skill Library check, the rendered-shape check for repo-root prose
+  the curated-list check, the rendered-shape check for repo-root prose
   files, and registry-publishing CI gating. **Load before editing any README
   or user guide, before cutting a version, on the release day, and when a
   repo carries a registry-publishing CI job.**
@@ -106,7 +106,7 @@ Named cross-references in this skill ("see Release branch under test",
 | Commit messages are public artefacts | `SKILL.md` |
 | Paste-destined text is soft-wrapped — wrapping belongs to the consumer | `references/release-branches-and-contributions.md` |
 | Git identity | `references/promotion-and-first-publication.md` |
-| READMEs never carry release notes — the commit history is the changelog; Open Skill Library — the release day's maintenance | `references/readme-and-counts.md` |
+| READMEs never carry release notes — the commit history is the changelog; Curated lists — the release day's check | `references/readme-and-counts.md` |
 | Rendered shape — list, table and index edits are structural splices | `references/readme-and-counts.md` |
 | Open-source skills are standalone, or depend only on published open-source companions | `references/confidentiality-scan.md` |
 | No dated first-party claims — in commit messages OR skill files | `SKILL.md` |
@@ -150,6 +150,9 @@ path the user's setup pins. **Read it at the start of every run.** It supplies:
   must meet to be proposed for the README, and the reject list of surfaces
   the maintainer declined, so they never resurface
   (`references/readme-and-counts.md`, Recommended-by intake).
+- **Curated lists** — any list of other people's repos the release day
+  maintains: its file and repo, staleness window, section scheme and
+  acceptance criterion (`references/readme-and-counts.md`, Curated lists).
 
 The configuration file is private and never ships to any repo.
 
@@ -361,6 +364,9 @@ exceptions are in `references/execution-environments.md`.
    fetch and drift entirely for repos at `awaiting-first-push`** — their `origin`
    points at a GitHub repo that does not exist yet, so `git fetch origin` fails
    there and the failure reads like drift or an error.
+   Compare every other clone's local refs with `git ls-remote origin`: a ref
+   ahead of origin with no Push order block in `REVIEW.md` is a **lost
+   handover**, named in the report's first line.
 2. **If upstream moved → stop and flag.** Do not generate commits for that repo.
    Reconciliation is a cooperative session that needs the maintainer's decisions,
    never automatic — otherwise a local-wins sync silently reverts merged
@@ -435,6 +441,10 @@ exceptions are in `references/execution-environments.md`.
    every run, until the status changes; re-list every unpushed commit; repeat any
    force-push or binary-classification instruction not yet carried out; and copy
    verbatim any pointer line to a `REVIEW-first-publication-<date>.md`.
+   **Moving a ref owes the push block:** any session — scheduled or
+   interactive, a run or a close-out — that creates or moves a local ref in a
+   review clone writes or updates `REVIEW.md`'s Push order block for it
+   before it ends.
    The command-block rules for `REVIEW.md`: `references/cycle-commit-and-close.md`
    ("Cycle step 7 — every command block in REVIEW.md is bare").
 8. **The maintainer reviews in the review environment**: open the repo folder,

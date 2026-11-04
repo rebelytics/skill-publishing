@@ -27,8 +27,8 @@ pushes. With no cadence in the configuration, ask before the first run.
   changes on the release branch. The release day's run adds the ceremony:
   the release merge with its evidence table, the tag, the GitHub release,
   the security-scan pair and the release notes ("Release branch under test"),
-  plus the skill-library check (`references/readme-and-counts.md`, "Open
-  Skill Library").
+  plus the curated-list check (`references/readme-and-counts.md`, "Curated
+  lists").
 - **A carried unpushed commit is a base, not a block.** New syncs to that
   repo commit on top of it, the bundle range stays `origin/main..main`,
   nothing carried is rebuilt, and `REVIEW.md` lists per repo every carried

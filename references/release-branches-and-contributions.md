@@ -662,9 +662,10 @@ python3 scripts/pre-push-check.py --config <config file> --repo <review clone> &
 Run before **every** push, from the repository that will push, chained
 with `&&` so the push cannot run if the gate refuses. **The gate's unit is
 the unpushed range, not the tip:** checks 1, 3 and 4 read every commit in
-`origin/<target>..<commit>` — every commit reachable from the tip when no
-origin ref exists (a repo awaiting its first push, a clone made from a
-bundle), because none of them is pushed yet — and name each offending
+`origin/<target>..<commit>` — without that ref (a new branch, a repo
+awaiting its first push, a clone made from a bundle), every commit on no
+origin ref (`<commit> --not --remotes=origin`, the scope it prints), because
+those are what the push publishes — and name each offending
 commit by sha, because a multi-commit release pushes every message and
 signature in it, and GitHub closes issues from a keyword in any pushed
 commit. Check 2 reads the tip. It
@@ -676,19 +677,21 @@ and exits 1 on any FAIL.
 is the maintainer's review surface — the commits a push would publish, one
 diff each — and it exists only for a branch with an upstream, so a fresh
 test branch pushed in one chain is reviewable for the first time after it
-is public. The *review line* creates the surface and publishes nothing of
-the branch: the remote ref is created at `main`, so every branch commit
-shows as outgoing in the editor.
+is public. The *review line* creates the surface and publishes nothing:
+the branch, rebased onto the current `origin/main` in the sandbox, is
+loaded with its upstream on `origin/main` ("Handover shapes in REVIEW.md",
+the new-branch shape), so every branch commit shows as outgoing.
 
 ```bash
-git checkout <branch> && git rebase --force-rebase -S --onto main <old-base> <branch> && git push origin main:refs/heads/<branch> && git branch --set-upstream-to=origin/<branch> <branch>
+git fetch <bundle> <branch> && git branch <branch> FETCH_HEAD && git branch --set-upstream-to=origin/main <branch>
 ```
 
 Then, after the review and the install of the branch's `.skill`, the
-*push line*:
+*push line*, which signs and re-points the upstream to the branch's own
+remote ref:
 
 ```bash
-python3 scripts/pre-push-check.py --config <config file> --repo <review clone> --target-branch <branch> && git push origin <branch>
+git checkout <branch> && git rebase --force-rebase -S origin/main && python3 scripts/pre-push-check.py --config <config file> --repo <review clone> --target-branch <branch> && git push -u origin <branch>
 ```
 
 A review surface that exists only after the irreversible act is not a
@@ -774,7 +777,8 @@ The gate carries a `--selftest` that builds throwaway fixtures (a
 multi-commit release, maintainer, contributor and already-pushed
 commits, a vendor term, signed and unsigned commits, a tripwire term,
 an unsigned commit and a bare Closes reference planted below a clean signed
-tip, a repo with no origin ref, quoted and unquoted globs for
+tip, a repo with no origin ref, a new branch on a main whose public
+history carries a check-3 hit, the `--draft-thanks` line, quoted and unquoted globs for
 `--lint-commands`, and matching, differing and missing licence files) with
 the environment's own git config ignored; run it after any edit to the script.
 
@@ -871,7 +875,7 @@ and each checked before publication:
 | Surface | Mechanism | Fed by |
 |---|---|---|
 | Commit | `Co-authored-by:` / `Reported-by:` trailers (Responding, step 6) | the sync commit; gate check 1 owes them to every `closes` |
-| Release body | `@handle` per contributor, in the Thanks section | generated from the trailer blocks of the release's commit range; gate check 5 |
+| Release body | `@handle` per contributor, in the Thanks section | generated from the trailer blocks of the release's commit range (`--draft-thanks`); gate check 5 before any pre-fill |
 | Changelog | the commit history (READMEs never carry one) | the commit message and trailers |
 | README | "Recommended by" and any contributor line the repo keeps | the maintainer's intake (`references/readme-and-counts.md`) |
 
@@ -911,6 +915,17 @@ safe, and the editor's default action is the wrong one exactly then, so the
 handover has to name the right one. If the maintainer has not used the review
 environment's terminal before, add the one line that opens it (in the
 reference setup, Terminal → New Terminal).
+**The new-branch shape — a branch not yet on origin.** With no upstream it
+shows nothing as outgoing, so the maintainer's review view is empty. Rebase
+it onto the current `origin/main` in the sandbox before bundling, ship the
+bundle, and load it with its upstream on `origin/main` — run at step 6 where
+the grant allows and the branch is not checked out, else handed over; the
+commands are the review line and push line in "Push gate" (`git branch -f`
+where an earlier load left the branch). `REVIEW.md` states the outgoing
+count the maintainer should see. Until the push line's `git push -u origin
+<branch>` has re-pointed the upstream, the editor's Push/Sync must not be
+used on that branch — under the default `push.default=simple` git refuses
+the name mismatch, and the terminal command is the publish action.
 
 ### Paste-destined text is soft-wrapped — wrapping belongs to the consumer
 
@@ -940,3 +955,11 @@ generated already in this shape. The Thanks section lists every contributor
 by `@handle`, generated from the trailers over the release's commit range
 ("Credit is per-surface"); `scripts/pre-push-check.py --release-body` checks
 the two agree before the release is published.
+**The pre-fill carries its own check.** The notes file's Thanks line is
+printed by `scripts/pre-push-check.py --draft-thanks <previous tag>..<tag>`,
+never typed. Any pre-fill of the release form, browser or API, is preceded
+in the same step by check 5 with `--release-body <notes file>` and
+`--release-range <previous tag>..<tag>`; a pre-fill without that PASS line
+is a pre-flight failure. The "Full list of changes" range starts at the
+previous *tag*, confirmed with `git tag`: a version that was never tagged is
+no endpoint.
