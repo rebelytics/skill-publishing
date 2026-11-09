@@ -59,7 +59,8 @@ branch not yet on origin is rebased onto the current `origin/main` in the
 sandbox before bundling, then loaded with its upstream set to
 `origin/main`; `REVIEW.md` states the outgoing count, the push is `git push
 -u origin <branch>`, and the editor's Push/Sync is not used for it (same
-reference, the new-branch shape).
+reference, the new-branch shape, and its stacked-line case for a line whose
+base is a `main` the maintainer pushes first).
 
 ### Cycle step 7 — every command block in REVIEW.md is bare
 
@@ -155,17 +156,20 @@ unpushed local `main` gives identical reject-safety via `reset --hard origin/mai
    where the sibling is published). **And, separately from any grep:** every
    example, usage string, default argument and fixture in the tree was read by
    a human for real values — allocation figures, counts, client-tied dates,
-   sample payloads. The `--fingerprint` report was read, its not-looked-at
-   list included, and every section added since the last published tree had
-   two named reads — **vertical clustering** and **engagement narratives**.
-   A green scan says nothing about these (see "A clean scan is not a clean
-   skill").
+   sample payloads — and `REVIEW.md` has one "invented" line per example
+   added since the last published tree. The `--fingerprint` report was
+   read, its not-looked-at list included, and every section added since the
+   last published tree had two named reads — **vertical clustering** and
+   **engagement narratives**. A green scan says nothing about these (see "A
+   clean scan is not a clean skill").
 5. No README gained or kept a release-note block; derived content matches the
    skill it was regenerated from — file tables and install layout, **and** prose
    counts and durations recomputed from their sources this version (README
    and user guide together; a skill-count mismatch is a finding), install
    count and stars by the live-counter check (`references/readme-and-counts.md`)
-   with value, URL and fetch time in the run summary. The
+   with value, URL and fetch time in the run summary. A repo the figures
+   record lists had its figures and record refreshed for this push, whatever
+   the version, and gate check 8 passed. The
    rendered shape of every repo-root prose file is gate check 6 (no blank
    line splitting a list); a list, table or index insert was made by
    structural splice, never by a string replacement anchored on a
@@ -233,6 +237,8 @@ unpushed local `main` gives identical reject-safety via `reset --hard origin/mai
 17. **Every branch named in the push order shows its commits as outgoing**
     in the review clone: its upstream is set, and `git rev-list --count
     '<branch>@{upstream}..<branch>'` equals the count `REVIEW.md` states.
+    For a line stacked on an unpushed `main`, the post-push load command
+    contains the set-upstream step.
 18. **Every release-form pre-fill this run has check 5's PASS line** from
     the same step (`--release-body`, `--release-range <previous tag>..<tag>`),
     and its "Full list of changes" range starts at a tag `git tag` lists.

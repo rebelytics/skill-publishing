@@ -1,6 +1,6 @@
 ---
 name: skill-publishing
-version: 1.6.0
+version: 1.7.0
 core_max_lines: 591
 description: "Publishes agent skills as open-source repositories and keeps published repos byte-identical to the installed copies. Load whenever the work involves publishing or open-sourcing a skill, the review session's publishing run, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists or candidate ranking, git bundles for review, the freshness gate (installed vs staged version), upstream drift on a published repo, issue/PR checks on skill repos, a release branch under test, folding community issues and PRs into a release, a repo awaiting its first push, or updating the pipeline's registry.md, REVIEW.md or process-record.md. Also trigger on 'publish this skill', 'sync the skill repos', 'can this go open source', 'what should we publish next', 'the publishing pipeline'."
 license: CC-BY-4.0
@@ -33,13 +33,12 @@ from this core file. If you notice an episode was handled without its reference 
   report — and keep it to hand through the pre-flight.**
 - `references/promotion-and-first-publication.md` — the promotion step
   (both phases, including the progressive-disclosure structure gate), the
-  standard repo structure and licence for new repos, git identity pinning
-  and mis-attribution repair, the parked repo's conditional sync and squash,
-  and the first-inclusion procedure for a published repo with no review
-  clone. **Load after the sync cycle before ranking candidates, when the
-  maintainer picks a skill for publication, when building or pushing a new
-  repo, when a repo sits at `awaiting-first-push`, and before running
-  First inclusion.**
+  standard repo structure and licence for new repos, git identity pinning and
+  mis-attribution repair, the parked repo's conditional sync and squash, and the
+  first-inclusion procedure for a published repo with no review clone. **Load
+  after the sync cycle before ranking candidates, when the maintainer picks a
+  skill for publication, when building or pushing a new repo, when a repo sits
+  at `awaiting-first-push`, and before running First inclusion.**
 - `references/release-branches-and-contributions.md` — the release branch
   under test (hold, the merge review on the configured release day, merge evidence,
   the release security scan as a same-environment pair, GitHub mechanic),
@@ -57,11 +56,12 @@ from this core file. If you notice an episode was handled without its reference 
   answering any issue or PR, before writing a commit that closes issues,
   before any push, and before drafting a release or GitHub-form text.**
 - `references/readme-and-counts.md` — the README rules (no release notes,
-  derived content, prose counts, recommended-by intake, published extracts),
-  the curated-list check, the rendered-shape check for repo-root prose
-  files, and registry-publishing CI gating. **Load before editing any README
-  or user guide, before cutting a version, on the release day, and when a
-  repo carries a registry-publishing CI job.**
+  derived content, prose counts and the figures record, recommended-by intake,
+  published extracts), the curated-list check, the rendered-shape check for
+  repo-root prose files, and registry-publishing CI gating. **Load before
+  editing any README or user guide, before cutting a version or committing to
+  a repo the figures record lists, on the release day, and when a repo carries
+  a registry-publishing CI job.**
 - `references/confidentiality-scan.md` — the clean-everywhere rule, the
   tripwire list as a floor with role-based classification, the one
   machine-readable source of the term list, the dated-claim scan (shapes,
@@ -244,6 +244,7 @@ skill-publishing/
 ├── registry.md         ← publication status per skill; the candidate priority queue
 ├── REVIEW.md           ← regenerated each cycle; the review queue handed to the maintainer
 ├── process-record.md   ← what has been validated in which run, plus next steps
+├── readme-figures.md   ← per-repo README figures: anchor, source, value, rounding, fetch date
 ├── bundles/            ← git bundles, one per repo per cycle (the transfer artefact)
 └── repos/              ← local review clones, one per published skill
 ```
@@ -396,15 +397,14 @@ exceptions are in `references/execution-environments.md`.
    The canonical frontmatter form (the normaliser call) and the version-bump
    and no-version holds: `references/cycle-gates-and-sync.md` ("Cycle step 3 — the
    canonical frontmatter form and the version holds").
-   **Repos at `awaiting-first-push` sync conditionally** — `diff -rq`
-   installed against the review clone; rebuild the parked bundle only on a
-   difference, and squash before the first push. Load
-   `references/promotion-and-first-publication.md` ("Awaiting-first-push
-   repos — conditional sync while parked") before syncing any repo at that
-   status.
-   Load `references/readme-and-counts.md` before touching any README or
-   cutting a version, and `references/confidentiality-scan.md` before
-   running step 4.
+   **Repos at `awaiting-first-push` sync conditionally** — `diff -rq` installed
+   against the review clone; rebuild the parked bundle only on a difference, and
+   squash before the first push. Load `references/promotion-and-first-publication.md`
+   ("Awaiting-first-push repos — conditional sync while parked") before syncing
+   any repo at that status.
+   Load `references/readme-and-counts.md` before touching any README, cutting a
+   version or committing to a repo the figures record lists, and
+   `references/confidentiality-scan.md` before running step 4.
 4. **Confidentiality scan — full tree, every repo, every run, by script.** Run
    `scripts/confidentiality_scan.py --config <config file> --baseline
    <workspace>/skill-publishing/scan-baseline.md --dates <repo dir>...` over the FULL

@@ -239,8 +239,13 @@ review session.
 The maintainer picks up to the **promotion cap** from the configuration file
 (default one); the publication task reads the pick from `registry.md` and, with
 no pick recorded, stops and reports. A pick line may record an exception to the
-cap in so many words; the task builds what the line says. Per pick, run the
-first-publication pass:
+cap in so many words; the task builds what the line says. **A pick line records
+the pick and any cap exception, nothing else.** Every first-publication cleanup
+is this pass's own work, staged under its own anchor
+(`skill-updates/<date>-pub/<skill>/`) and installed before the push. The
+failure shape: a prep request written into the pick line is addressed to a
+review whose harvest never reads the registry, so it reaches nobody. Per pick,
+run the first-publication pass:
 
 - Confidentiality layers 2–5 incl. the cross-product re-identifiability
   sweep; client-identifier scan against the configuration file's tripwire

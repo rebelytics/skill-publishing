@@ -1,13 +1,13 @@
 # README rules and derived counts — skill-publishing reference
 
 Reference file for the `skill-publishing` skill (CC BY 4.0 — Eoghan Henn and contributors). Load before editing any
-README or user guide, before cutting a version, on the release day for the
-curated-list check, and when a repo carries a registry-publishing CI
-job. Sections below were moved from the skill core or
-added here; headings and step numbers match the core's cross-references,
-which resolve by name.
+README or user guide, before cutting a version or committing to a repo the
+figures record lists, on the release day for the curated-list check, and
+when a repo carries a registry-publishing CI job. Sections below were moved
+from the skill core or added here; headings and step numbers match the
+core's cross-references, which resolve by name.
 
-Load triggers: before editing any README or user guide; before cutting a version (derived counts and the live-counter check); the recommended-by intake each run; a list, table or index insert into a repo-root prose file (Rendered shape); the release day's curated-list check; when a repo carries a registry-publishing CI job
+Load triggers: before editing any README or user guide; before cutting a version (derived counts and the live-counter check); before any commit to main of a repo the figures record lists (the every-push refresh); the recommended-by intake each run; a list, table or index insert into a repo-root prose file (Rendered shape); the release day's curated-list check; when a repo carries a registry-publishing CI job
 
 ### READMEs never carry release notes — the commit history is the changelog
 
@@ -29,21 +29,19 @@ N pull requests" — these were true when written and drift with every week of u
 and every merged contribution. A number in prose is a measurement with no
 timestamp, and a document that states one has taken on a maintenance obligation
 the process must own, or the number will be read as current long after it is not.
-At **every published version**, enumerate the numeric and duration claims in the
+At **every published version** — and at every push to `main` for a repo the
+figures record lists (below) — enumerate the numeric and duration claims in the
 README and user guide, recompute each from its source, update them in the same
 commit, and carry the values into the run summary so the maintainer sees what
 changed. README and user guide are refreshed together, in one commit: a skill
 count that differs between them is a gate finding, not a wording choice. A contributor count counts people: AI-tool trailers (an assistant's
 `Co-authored-by:` line on a contributor's own commit) are excluded.
 
-**A skills-registry install count is one of those figures.** Where a README
-states how many installs a skills registry has counted, refresh it in every
-release together with the observation, skill and contributor figures, so
-every README figure is updated in one place per release. Label the install
-route by the installer tool that does the work, not by the directory site
-that counts it.
+**A skills-registry install count is one of those figures**, refreshed with
+the others. Label the install route by the installer tool that does the
+work, not by the directory site that counts it.
 
-**Live-counter check — the same four steps at every release.** A figure
+**Live-counter check — the same four steps at every refresh.** A figure
 refreshed from a cached read is not refreshed, and a stale copy does the
 most damage on the day the count crosses a round number, which is exactly
 when the README wording changes.
@@ -60,16 +58,47 @@ when the README wording changes.
    an exact value and a rounded display.
 3. **Record the value, the source URL and the fetch time** in the run
    summary, beside the other recomputed figures.
-4. **State it in the README as a rounded-down lower bound** ("over N").
-   Where the installer's telemetry is opt-out, the count is a lower bound in
-   any case: state it as a rounded-down "over N"; do not explain the
-   telemetry in the README. What the public artefact says about its own
+4. **State it in the README as a rounded-down lower bound** ("over N"); with
+   opt-out installer telemetry it is one in any case, and the README does
+   not explain the telemetry. What the public artefact says about its own
    measurement is the maintainer's editorial call; the pipeline's job is
    to keep the figure fresh and labelled as a bound.
 
 The same fresh-read rule covers repository stars and any other live counter
 the README cites: re-read from its source, uncached, on the day it is
 written down.
+
+**The figures record — refreshed on every push to `main`, and gated.** A
+repo whose README or user guide states figures has rows in the figures
+record, `skill-publishing/readme-figures.md` in the workspace (private,
+beside the configuration file). On every push to that repo's `main`, not
+only at a version, the run re-reads every source uncached (live-counter
+check, steps 1–3), rewrites the figures in the same commit or in a separate
+"README: refresh the figures" commit, and updates each row's value and
+fetch date. Gate check 8 (`readme-figures`) refuses the push when a row's
+fetch date is older than the push day, when a figure differs from the row's
+value under its rounding rule, or when its anchor is gone; a repo with no
+rows skips. The failure shape: a refresh step the run has to remember is
+skipped on the busiest day, and a per-version refresh lets figures drift on
+every push between versions. The record is one Markdown table, read row by
+row wherever it sits in the file:
+
+```
+| Repo | File | Anchor | Source | Value | Round | Fetched |
+|---|---|---|---|---|---|---|
+| <repo> | README.md | `reports over {} installs` | `<uncached command or URL>` | 12345 | 1000 | YYYY-MM-DD |
+```
+
+- **Repo** — the repository name the gate is keyed by (`--repo-name`,
+  default the origin URL's basename); **File** — the repo-root path holding
+  the figure (`README.md`, `USER-GUIDE.md`).
+- **Anchor** — the exact wording around the figure, `{}` where the number
+  sits, unique enough to find; every occurrence is checked.
+- **Value** — the exact figure as last fetched; **Round** — the step the
+  figure is rounded down to (1000 for installs, 100 for observations, 10
+  for closed issues, 1 for an exact count). The gate compares digits only,
+  so the README's thousands separator is a style choice.
+- **Fetched** — the date of the uncached read, `YYYY-MM-DD`.
 
 **Recommended-by intake.** Where a README carries a "Recommended by" or
 "Listed in" list, it grows whenever someone links the project, and only the

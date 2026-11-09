@@ -183,13 +183,17 @@ The mitigation is one prospective rule plus one human pass:
   confidentiality layers.
 - **Human** — the pre-publication read includes a deliberate pass over
   **every example, usage string and fixture** in the tree, read for real
-  values rather than for listed terms. This is the one check the script
-  cannot do for the maintainer, so it is a named step, not a habit.
+  values rather than for listed terms, and every sync of a published skill
+  repeats it over each example added since the last published tree. An
+  example is anonymised when nothing in it — vertical, market shape,
+  figures — traces back to the session it came from: published examples
+  are invented, never quoted. `REVIEW.md` records one line per added
+  example (where it sits, "invented"). This is the one check the script
+  cannot do for the maintainer, so it is a named step with a record.
 
-Concretely: a publication candidate was found carrying a real client's
-vertical and a real allocation count in the usage docstring of one of its
-scripts, having passed every scan the pipeline runs. Nothing was broken —
-the scan did what it matches on, and what it matches on was the wrong class.
+The failure shape: a script's usage docstring carries a real client's
+vertical and a real count and passes every scan the pipeline runs — the
+scan did what it matches on, and what it matches on was the wrong class.
 
 Do **not** extend `scripts/confidentiality_scan.py` to chase numbers. A
 numeric pattern fires on every count, version, threshold and table in a skill

@@ -99,6 +99,19 @@ are what the push publishes — each offender named by sha:
                        working directory). SKIP when neither names one; a
                        named file that cannot be read, or a tip with no
                        `LICENSE`, refuses.
+  8. readme-figures    The figures record (--figures, else
+                       `readme-figures.md` beside the config): every table
+                       row whose Repo cell is this repo's name (the
+                       --repo-name key) must carry today's fetch date, and
+                       every occurrence of its Anchor (`{}` where the
+                       number sits) in the tip's File must show Value
+                       rounded down to the Round step (digits compared,
+                       separators ignored). A stale date, a differing
+                       figure, an anchor the file no longer carries, an
+                       unreadable cell or a missing File refuses. SKIP
+                       when there is no record or no row for this repo.
+                       A refresh step the run has to remember is skipped
+                       on the busiest day; this turns it into a refusal.
 
 Usage:
   pre-push-check.py --config CONFIG.md [--repo DIR] [--target-branch main]
@@ -106,7 +119,7 @@ Usage:
                     [--release-body FILE [--release-range A..B | --single-commit]]
                     [--commit REF] [--pre-bundle] [--repo-name NAME]
                     [--allow-mixed-trailers] [--allow-unverifiable-signature]
-                    [--license-canonical FILE]
+                    [--license-canonical FILE] [--figures FILE]
   pre-push-check.py --draft-thanks A..B [--repo DIR] [--config CONFIG.md]
   pre-push-check.py --lint-commands REVIEW.md [FILE ...]
   pre-push-check.py --lint-commands=inline REVIEW.md [FILE ...]
@@ -135,8 +148,11 @@ Config values read beside the term block (Maintainer table rows):
   | Signing key  | `SHA256:...` or a GPG fingerprint |   check 4 at push
 and one line anywhere in the config (Repo conventions):
   `license_canonical:` `<path>`                         check 7
+and one file beside the config:
+  readme-figures.md   | Repo | File | Anchor | Source | Value | Round | Fetched |
+                                                        check 8
 """
-import argparse, base64, hashlib, pathlib, re, struct, subprocess, sys
+import argparse, base64, datetime, hashlib, pathlib, re, struct, subprocess, sys
 
 CLOSE_KW = r"(?:closes|fixes|resolves)"
 CLOSE_REF_RE = re.compile(CLOSE_KW + r"\s+#(\d+)", re.I)
@@ -151,8 +167,12 @@ CREDIT_CLASSES = {"co-authored-by", "reported-by", "suggested-by",
 MENTION_RE = re.compile(r"(?<![\w.`/])@([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)")
 NOREPLY_RE = re.compile(r"<\s*(?:\d+\+)?([^@\s>]+)@users\.noreply\.github\.com\s*>")
 # A token that names a path in prose: contains a slash or a real extension.
+# The slash alternative states its own end — the next character is not part
+# of a path — because `\b` after a trailing `/` is never a boundary, so a
+# directory written as `scripts/` before a space or comma would never match.
 PATH_TOKEN_RE = re.compile(
-    r"(?<![\w@])((?:[\w.-]+/)+[\w.-]*|[\w-]+\.(?:md|py|sh|yml|yaml|json|txt|toml|cfg))\b")
+    r"(?<![\w@])((?:[\w.-]+/)+[\w.-]*(?![\w.-])"
+    r"|[\w-]+\.(?:md|py|sh|yml|yaml|json|txt|toml|cfg)\b)")
 LIST_ITEM_RE = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+\S")
 # AI-tool attribution: not a person, never credit. A list — extend here.
 AI_TOOL_RE = re.compile(
@@ -867,6 +887,123 @@ def check_license_canonical(rep, repo, commit, canonical, source):
                                    "copy the canonical file over LICENSE"])
 
 
+FIGURE_COLS = ("repo", "file", "anchor", "source", "value", "round", "fetched")
+FIGURE_SEPS = ",.'_   "
+
+
+def table_cells(line):
+    """The cells of a Markdown table row, or None. A `|` inside a backtick
+    span or escaped as `\\|` is cell text (a source command may pipe)."""
+    s = line.strip()
+    if not (s.startswith("|") and s.endswith("|") and len(s) > 1):
+        return None
+    cells, cur, code, i = [], [], False, 1
+    while i < len(s) - 1:
+        c = s[i]
+        if c == "\\" and s[i + 1] == "|":
+            cur.append("|")
+            i += 2
+            continue
+        if c == "`":
+            code = not code
+        if c == "|" and not code:
+            cells.append("".join(cur).strip())
+            cur = []
+        else:
+            cur.append(c)
+        i += 1
+    cells.append("".join(cur).strip())
+    return cells
+
+
+def load_figures(path, repo_name):
+    """(line number, {column: value}) for every row of the figures record
+    whose Repo cell names this repo. A row for this repo with the wrong
+    cell count is returned with an `error` key, never dropped: a row the
+    gate cannot read must refuse, not pass."""
+    rows = []
+    for no, line in enumerate(pathlib.Path(path).read_text(
+            encoding="utf-8", errors="replace").splitlines(), 1):
+        cells = table_cells(line)
+        if not cells or set("".join(cells)) <= set("-: "):
+            continue
+        if cells[0].strip("`").strip().lower() != repo_name.lower():
+            continue
+        if len(cells) != len(FIGURE_COLS):
+            rows.append((no, {"error": f"{len(cells)} cells, want "
+                                       f"{len(FIGURE_COLS)}"}))
+            continue
+        rows.append((no, {k: v.strip("`").strip()
+                          for k, v in zip(FIGURE_COLS, cells)}))
+    return rows
+
+
+def check_readme_figures(rep, repo, commit, figures, repo_name, today,
+                         named=False):
+    name = "8 readme-figures"
+    if figures is None or not pathlib.Path(figures).is_file():
+        if named:
+            rep.result(name, "FAIL", [f"--figures {figures} cannot be read — "
+                                      "a configured check that cannot run refuses"])
+            return
+        rep.result(name, "SKIP", [f"no figures record ({figures or 'none named'})"])
+        return
+    rows = load_figures(figures, repo_name)
+    if not rows:
+        rep.result(name, "SKIP", [f"no row for repo {repo_name!r} in {figures}"])
+        return
+    ev = [f"record: {figures}; rows for {repo_name}: {len(rows)}; push day {today}"]
+    hits, texts = [], {}
+    for no, row in rows:
+        tag = f"{pathlib.Path(figures).name}:{no}"
+        if "error" in row:
+            hits.append(f"{tag}: unreadable row ({row['error']})")
+            continue
+        try:
+            fetched = datetime.date.fromisoformat(row["fetched"])
+            value = int(row["value"].translate({ord(c): None for c in FIGURE_SEPS}))
+            step = int(row["round"].translate({ord(c): None for c in FIGURE_SEPS}))
+            if step <= 0:
+                raise ValueError("Round must be positive")
+        except ValueError:
+            hits.append(f"{tag}: unreadable Value, Round or Fetched cell "
+                        f"({row['value']!r}, {row['round']!r}, {row['fetched']!r})")
+            continue
+        want = value // step * step
+        ev.append(f"  {tag}: {row['file']} `{row['anchor']}` = {want:,} "
+                  f"(value {value}, round {step}; fetched {fetched})")
+        if fetched < today:
+            hits.append(f"{tag}: fetched {fetched}, older than the push day "
+                        f"{today} — re-read {row['source']} uncached and "
+                        "refresh the figure and the row")
+        if row["anchor"].count("{}") != 1:
+            hits.append(f"{tag}: the anchor needs exactly one {{}} slot")
+            continue
+        if row["file"] not in texts:
+            r = subprocess.run(["git", "-C", str(repo), "show",
+                                f"{commit}:{row['file']}"], capture_output=True)
+            # Whitespace runs collapse on both sides, so a figure whose
+            # sentence wraps across README lines is still found.
+            texts[row["file"]] = (re.sub(r"\s+", " ", r.stdout.decode("utf-8", "replace"))
+                                  if r.returncode == 0 else None)
+        text = texts[row["file"]]
+        if text is None:
+            hits.append(f"{tag}: no {row['file']} in {commit[:12]}")
+            continue
+        pre, post = re.sub(r"\s+", " ", row["anchor"]).split("{}")
+        num = r"(\d(?:[\d" + re.escape(FIGURE_SEPS) + r"]*\d)?)"
+        found = list(re.finditer(re.escape(pre) + num + re.escape(post), text))
+        if not found:
+            hits.append(f"{tag}: anchor not found in {row['file']} — the wording "
+                        "changed; update the row's Anchor with the README")
+        for m in found:
+            got = int(re.sub(r"\D", "", m.group(1)))
+            if got != want:
+                hits.append(f"{tag}: {row['file']} says {m.group(1)!r}, the record "
+                            f"gives {want:,}")
+    rep.result(name, "FAIL" if hits else "PASS", ev + hits)
+
+
 SHELL_FENCES = {"", "bash", "sh", "zsh", "shell", "console", "shell-session"}
 GLOB_CHARS = set("?*[]")
 LONE_WORDS = {"[", "]", "[[", "]]"}       # test-command brackets, not patterns
@@ -1002,8 +1139,10 @@ def selftest():
     origin/<branch> ref on a main whose public history carries a check-3 hit
     (scope = the commits on no origin ref), the --draft-thanks line, and the
     command-block
-    lint (unquoted glob metacharacters in a handed-over shell block), and
-    the canonical-licence comparison (check 7). Git
+    lint (unquoted glob metacharacters in a handed-over shell block),
+    the canonical-licence comparison (check 7), directories named with a
+    trailing slash beside a prose "and/or" (check 2), and current, stale,
+    drifted and unanchored README figures (check 8). Git
     runs with the global and system config ignored, so the environment's own
     signing default cannot leak into the fixture."""
     import contextlib, io, os, tempfile
@@ -1376,6 +1515,78 @@ def selftest():
                    r, repo, lic_ok, *load_license_canonical(cfg2)),
                {"7 license-canonical": "PASS"}, "config license_canonical")
 
+        def fixture_repo(name, files):
+            fx = pathlib.Path(d, name)
+            fx.mkdir()
+            git(fx, "init", "-q", "-b", "main")
+            for k, v in (("user.name", "Maintainer"), ("user.email", "me@example.org"),
+                         ("commit.gpgsign", "false")):
+                git(fx, "config", k, v)
+            for rel, text in files.items():
+                (fx / rel).parent.mkdir(parents=True, exist_ok=True)
+                (fx / rel).write_text(text, encoding="utf-8")
+            git(fx, "add", "-A")
+            git(fx, "commit", "-q", "-m", "Initial")
+            return fx
+
+        # Check 2: a directory named with a trailing slash is a named path.
+        mv = fixture_repo("move-repo", {"references/a.md": "x\n",
+                                        "scripts/b.py": "x\n", "SKILL.md": "x\n"})
+        git(mv, "rm", "-q", "-r", "references", "scripts")
+        mv_msg = "Move the bundle\n\nFiles: references/, scripts/\n"
+        git(mv, "commit", "-q", "-m", mv_msg)
+        mv_tip = git(mv, "rev-parse", "HEAD").strip()
+        expect("diff-vs-claim: `references/, scripts/` names both directories",
+               lambda r: check_diff_vs_claim(r, mv, mv_tip, mv_msg, 25, []),
+               {"2 diff-vs-claim": "PASS"},
+               "paths the message names (+ --allow-path): references, scripts")
+        expect("diff-vs-claim: `and/or` in prose names no path",
+               lambda r: check_diff_vs_claim(r, mv, mv_tip,
+                                             "Tidy the and/or wording\n", 1, []),
+               {"2 diff-vs-claim": "FAIL"}, "message names no path")
+
+        # Check 8: README figures against the figures record.
+        fr = fixture_repo("fig-repo", {"README.md": "Install it: the registry "
+                                       "reports over\n4,000 installs.\n"})
+        fr_tip = git(fr, "rev-parse", "HEAD").strip()
+        today = datetime.date.today()
+        rec = pathlib.Path(d, "readme-figures.md")
+        nope = pathlib.Path(d, "no-record.md")
+
+        def figures(value, fetched, anchor="reports over {} installs",
+                    repo_cell="fig-repo"):
+            rec.write_text(
+                "| Repo | File | Anchor | Source | Value | Round | Fetched |\n"
+                "|---|---|---|---|---|---|---|\n"
+                f"| {repo_cell} | README.md | `{anchor}` | "
+                f"`curl -s '<page URL>' | jq .installs` | {value} | 1000 | {fetched} |\n",
+                encoding="utf-8")
+            return lambda r: check_readme_figures(r, fr, fr_tip, rec, "fig-repo",
+                                                  today)
+        expect("figures: a current row whose figure matches passes (a wrapped "
+               "line, a piped source)", figures(4321, today),
+               {"8 readme-figures": "PASS"}, "= 4,000 (value 4321, round 1000")
+        expect("figures: a fetch date before the push day refuses",
+               figures(4321, today - datetime.timedelta(days=1)),
+               {"8 readme-figures": "FAIL"}, "older than the push day")
+        expect("figures: a README figure the record does not give refuses",
+               figures(5300, today), {"8 readme-figures": "FAIL"},
+               "README.md says '4,000', the record gives 5,000")
+        expect("figures: an anchor the README no longer carries refuses",
+               figures(4321, today, anchor="counted over {} installs"),
+               {"8 readme-figures": "FAIL"}, "anchor not found")
+        expect("figures: no row for this repo is a SKIP",
+               figures(4321, today, repo_cell="other-repo"),
+               {"8 readme-figures": "SKIP"}, "no row for repo 'fig-repo'")
+        expect("figures: no record beside the config is a SKIP",
+               lambda r: check_readme_figures(r, fr, fr_tip, nope, "fig-repo",
+                                              today),
+               {"8 readme-figures": "SKIP"}, "no figures record")
+        expect("figures: a record named with --figures that is missing refuses",
+               lambda r: check_readme_figures(r, fr, fr_tip, nope, "fig-repo",
+                                              today, named=True),
+               {"8 readme-figures": "FAIL"}, "cannot be read")
+
         # Lint mode: glob metacharacters in a handed-over command block.
         def lint(text):
             f = pathlib.Path(d, "REVIEW.md")
@@ -1481,6 +1692,9 @@ def main():
     ap.add_argument("--license-canonical", metavar="FILE",
                     help="canonical licence file LICENSE must equal byte for "
                          "byte (overrides the config's license_canonical:)")
+    ap.add_argument("--figures", metavar="FILE",
+                    help="README figures record for check 8 (default: "
+                         "readme-figures.md beside --config)")
     ap.add_argument("--pre-bundle", action="store_true",
                     help="sandbox run before bundling: check 4 asserts the "
                          "commits are UNSIGNED (the push-side run never passes this)")
@@ -1556,6 +1770,10 @@ def main():
     else:
         canonical, source = load_license_canonical(a.config)
     check_license_canonical(rep, repo, sha, canonical, source)
+    figures = pathlib.Path(a.figures) if a.figures else \
+        pathlib.Path(a.config).resolve().parent / "readme-figures.md"
+    check_readme_figures(rep, repo, sha, figures, repo_name,
+                         datetime.date.today(), named=bool(a.figures))
     print("RESULT: " + ("REFUSED — do not push" if rep.failed else "clear to push"))
     sys.exit(1 if rep.failed else 0)
 

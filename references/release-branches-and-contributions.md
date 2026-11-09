@@ -137,10 +137,14 @@ selftest is green, merges; an environment-specific change the maintainer cannot
 test locally merges with a please-confirm comment to its reporter; an untested
 executable artefact stays on the branch.
 
-**Every release runs an LLM-assisted security scan, read as a
-same-environment pair.** A probabilistic skill scanner (SkillSpector is one)
-runs over the release candidate and over the previous release's commit, and
-the merge report carries both results. The reading rule:
+**A release that changes scripts, hooks or network behaviour runs an
+LLM-assisted security scan, read as a same-environment pair.** A
+probabilistic skill scanner (SkillSpector is one) runs over the release
+candidate and over the previous release's commit, and the merge report
+carries both results. A release without such changes records "scan not due
+(no script, hook or network change)" in its merge report: on a prose-only
+release the scan's findings are mostly incomplete-coverage ones, and it
+costs hours to say nothing. The reading rule:
 
 - **Compare the CRITICAL count, the maximum severity and the named semantic
   findings** against the previous release's scan. The 0–100 score is not a
@@ -772,6 +776,11 @@ review; the two branches of one release get the same one. The checks:
    the config's `license_canonical:` line; SKIP when neither names one. A
    named file the gate cannot read, or a tip with no `LICENSE`, refuses.
    It puts cycle step 3's `cmp` on the push itself.
+8. **README figures.** Where the figures record (`readme-figures.md` beside
+   the config, or `--figures <file>`) has rows for this repo, every row's
+   fetch date is the push day and every figure in the tip's file equals the
+   record's value under its rounding rule; an anchor the file no longer
+   carries refuses. A repo without rows SKIPs.
 
 The gate carries a `--selftest` that builds throwaway fixtures (a
 multi-commit release, maintainer, contributor and already-pushed
@@ -779,7 +788,8 @@ commits, a vendor term, signed and unsigned commits, a tripwire term,
 an unsigned commit and a bare Closes reference planted below a clean signed
 tip, a repo with no origin ref, a new branch on a main whose public
 history carries a check-3 hit, the `--draft-thanks` line, quoted and unquoted globs for
-`--lint-commands`, and matching, differing and missing licence files) with
+`--lint-commands`, matching, differing and missing licence files, directories
+named with a trailing slash, and current, stale and drifted README figures) with
 the environment's own git config ignored; run it after any edit to the script.
 
 **Two ways a PR lands, and the gate tells them apart.** A PR merged
@@ -926,6 +936,14 @@ count the maintainer should see. Until the push line's `git push -u origin
 <branch>` has re-pointed the upstream, the editor's Push/Sync must not be
 used on that branch — under the default `push.default=simple` git refuses
 the name mismatch, and the terminal command is the publish action.
+**The stacked-line case — a line based on a `main` the maintainer pushes
+first** (and may re-sign on the way). The line's load command, the second
+step of the push order, always ends with `git branch
+--set-upstream-to=origin/main <branch> && git rev-list --count
+origin/main..<branch>`, and `REVIEW.md` states the count expected after the
+`main` push. The failure shape: the handover carries the rebase onto the
+pushed `main` but no upstream, so the editor shows nothing outgoing, and
+the pre-flight's count cannot catch it while `origin/main` is still the old tip.
 
 ### Paste-destined text is soft-wrapped — wrapping belongs to the consumer
 
