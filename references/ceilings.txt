@@ -9,7 +9,7 @@
 # The core's ceiling is core_max_lines in SKILL.md; its raises are recorded here as comments:
 # SKILL.md core_max_lines 591 the curated-lists configuration entry; the lost-handover check at fetch; the push block owed by any session that moves a ref
 confidentiality-scan.md 325 retiring a whole-file date exemption; the example pass on every sync with its invented-example record
-cycle-commit-and-close.md 244 the curated-list report line; the outgoing-view handover for a branch not yet on origin and its pre-flight count; the release-form pre-fill check; the invented-example record, the every-push figures refresh and the stacked-line upstream in the pre-flight
+cycle-commit-and-close.md 257 the review clone re-read after a push order is handed over; the manifest named in a plugin validate run; the curated-list report line; the outgoing-view handover for a branch not yet on origin and its pre-flight count; the release-form pre-fill check; the invented-example record, the every-push figures refresh and the stacked-line upstream in the pre-flight
 cycle-gates-and-sync.md 199
 execution-environments.md 246 the cycle inside the review session and the unattended staged-copy exception, the guards on an unattended fold
 promotion-and-first-publication.md 378 the shortlist day and the recorded pick; a pick line's exception to the cap; the first-publication handover in its own file; the line-neutral attribution forms; first-publication cleanup owned by the pass, never requested in the pick line

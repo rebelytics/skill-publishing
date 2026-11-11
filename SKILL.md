@@ -1,6 +1,6 @@
 ---
 name: skill-publishing
-version: 1.7.0
+version: 1.8.0
 core_max_lines: 591
 description: "Publishes agent skills as open-source repositories and keeps published repos byte-identical to the installed copies. Load whenever the work involves publishing or open-sourcing a skill, the review session's publishing run, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists or candidate ranking, git bundles for review, the freshness gate (installed vs staged version), upstream drift on a published repo, issue/PR checks on skill repos, a release branch under test, folding community issues and PRs into a release, a repo awaiting its first push, or updating the pipeline's registry.md, REVIEW.md or process-record.md. Also trigger on 'publish this skill', 'sync the skill repos', 'can this go open source', 'what should we publish next', 'the publishing pipeline'."
 license: CC-BY-4.0

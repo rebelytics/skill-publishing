@@ -61,6 +61,18 @@ sandbox before bundling, then loaded with its upstream set to
 -u origin <branch>`, and the editor's Push/Sync is not used for it (same
 reference, the new-branch shape, and its stacked-line case for a line whose
 base is a `main` the maintainer pushes first).
+**After a push order is handed over, the review clone is the maintainer's.**
+Before every later write to it, re-read its branch tips and `git ls-remote
+origin`; where a tip moved (re-signed or pushed), build the new commits on
+the moved tip and name only those new commits in the push order. The
+pre-bundle signature check then refuses the carried maintainer-signed
+commits in the range: expected for those, and reported as such.
+**A manifest check names the file it validates.** Where a repo root carries
+both `.claude-plugin/marketplace.json` and `plugin.json`, the bare `claude
+plugin validate .` reads the marketplace manifest; a `plugin.json` change is
+validated with `claude plugin validate .claude-plugin/plugin.json`, and the
+push-order line says which manifest it checked (observed with one CLI
+version; re-check on the Mac before relying on it).
 
 ### Cycle step 7 — every command block in REVIEW.md is bare
 
