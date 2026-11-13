@@ -225,7 +225,8 @@ review session.
    verdict alone. Where a rating rests on a specific remedy having been
    applied ("isolated", "split", "scans clean"), record in `registry.md`
    what was checked and when, so a later reader can see the claim's age.
-   Optimistic errors need this most: a ready thing marked not-ready gets
+   A readiness row older than a gate it would now need to pass is
+   unverified, however clean it reads. Optimistic errors need this most: a ready thing marked not-ready gets
    challenged the moment someone wants to publish it, while a not-ready
    thing marked ready surfaces only when it causes the harm the rating was
    meant to prevent.
@@ -244,12 +245,25 @@ the pick and any cap exception, nothing else.** Every first-publication cleanup
 is this pass's own work, staged under its own anchor
 (`skill-updates/<date>-pub/<skill>/`) and installed before the push. The
 failure shape: a prep request written into the pick line is addressed to a
-review whose harvest never reads the registry, so it reaches nobody. Per pick,
-run the first-publication pass:
+review whose harvest never reads the registry, so it reaches nobody.
+
+**A pick beyond the verified shortlist is re-verified before any staging.**
+When a pick line or batch plan names a candidate the last Phase 1 run did
+not verify, run the Phase 1 readiness checks on every such candidate first
+— structure gate, confidentiality scan, unpublished-name grep — and report
+one verdict each: gate passes / needs restructure / needs decision.
+Staging starts only after that report. A batch plan may instead record
+which candidates were verified, and when; any candidate it does not name
+gets the checks. The failure shape: a plan raises the
+cap and lists candidates as light on registry rows written before the
+structure gate existed, and most turn out flat at staging time.
+
+Per pick, run the first-publication pass:
 
 - Confidentiality layers 2–5 incl. the cross-product re-identifiability
-  sweep; client-identifier scan against the configuration file's tripwire
-  list must be clean (tripwire rules apply).
+  sweep — for a batch, one `--fingerprint` call over all of its trees, with
+  the cross-tree list read as one set; client-identifier scan against the
+  configuration file's tripwire list must be clean (tripwire rules apply).
 - **No dated first-party claims** in any date format — the scan's `--dates`
   mode, with the shapes that ran recorded. A dated `## History` or
   changelog section in a candidate is rewritten as an undated current-method

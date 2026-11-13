@@ -170,7 +170,9 @@ unpushed local `main` gives identical reject-safety via `reset --hard origin/mai
    a human for real values — allocation figures, counts, client-tied dates,
    sample payloads — and `REVIEW.md` has one "invented" line per example
    added since the last published tree. The `--fingerprint` report was
-   read, its not-looked-at list included, and every section added since the
+   read, its not-looked-at list included — one call over every tree when
+   the run touched more than one repo, its cross-tree list read as one
+   set — and every section added since the
    last published tree had two named reads — **vertical clustering** and
    **engagement narratives**. A green scan says nothing about these (see "A
    clean scan is not a clean skill").

@@ -190,7 +190,9 @@ published stay identical — and if the identifier was ever pushed, assess
 the Retroactive scrub below as well.
 **Fingerprint report:** `confidentiality_scan.py --fingerprint <files
 changed since the last published tree>` reports, never fails; its output
-is a required pre-flight artefact (item 4). **One-time back-sweep, the
+is a required pre-flight artefact (item 4). A run that syncs more than
+one repo passes every changed tree in one call, so the report's
+cross-tree list is read as one set. **One-time back-sweep, the
 next run:** the same mode over every published repo's full current tree,
 findings fixed at the live skill (each restage with its `PENDING.md`
 entry, Workspace state), the sweep recorded in

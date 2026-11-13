@@ -48,7 +48,11 @@ project/account/session/engagement", "the client", "went live", "for a week",
 the shape of an engagement story; and (b) per Markdown heading section, the
 example-like tokens (backticked literals, quoted strings, capitalised
 multi-word names), so a reviewer reads a section's examples as one set and
-sees when they all come from one vertical. The output ENDS by naming what it
+sees when they all come from one vertical. Given several skill trees (a file
+belongs to the nearest directory above it holding a SKILL.md), it also lists
+(c) every number or backticked/quoted literal found in anecdote sentences of
+more than one tree — shared-provenance candidates, read as one set; pass a
+batch's trees in one call. The output ENDS by naming what it
 did not look at — binaries, data and fixture files, Markdown tables, fenced
 blocks, tokens in non-Markdown files — because an extract that bounds a
 reader's attention must state its own boundary, or reading it passes for the
@@ -157,11 +161,26 @@ TOKEN_RES = [re.compile(r"`([^`\n]+)`"),
 DATA_SUFFIXES = {".csv", ".tsv", ".json", ".jsonl", ".yaml", ".yml", ".xml",
                  ".ndjson", ".parquet", ".xlsx", ".xls"}
 FIXTURE_PARTS = {"fixture", "fixtures", "testdata", "samples", "sample-data"}
+# Cross-tree pass: the literals of an anecdote sentence — numbers of two or
+# more digits and backticked or quoted strings — compared across skill trees.
+# A single digit is not compared: it repeats between any two trees.
+LITERAL_RES = [re.compile(r"(?<![\w-])\d[\d,.]*\d\b"), TOKEN_RES[0], TOKEN_RES[1]]
+
+
+def tree_of(f, root):
+    """The skill tree a file belongs to: the nearest directory at or above it
+    holding a SKILL.md, else the PATH argument it was found under."""
+    for d in pathlib.Path(f).resolve().parents:
+        if (d / "SKILL.md").is_file():
+            return str(d)
+    return str(pathlib.Path(root).resolve())
 
 
 def fingerprint(paths):
     """Report lines for the fingerprint pass; never a verdict."""
     anecdotes, sections = [], []
+    shared = {}  # literal -> {tree: [file:line, ...]}
+    trees = set()
     skipped = {"binary": [], "data/fixture": [], "tables": {}, "fenced": {},
                "non-markdown": []}
     for root in paths:
@@ -181,6 +200,8 @@ def fingerprint(paths):
                 skipped["data/fixture"].append(str(f))
                 continue
             md = f.suffix.lower() in (".md", ".markdown")
+            tree = tree_of(f, root)
+            trees.add(tree)
             if not md:
                 skipped["non-markdown"].append(str(f))
             text = raw.decode("utf-8", errors="ignore")
@@ -202,6 +223,13 @@ def fingerprint(paths):
                     ln = max((l for o, l in starts if o <= at), default=0)
                     if ANECDOTE_RE.search(sent) and NUMBER_RE.search(sent):
                         anecdotes.append(f"{f}:{ln}: {sent.strip()[:220]}")
+                        for rx in LITERAL_RES:
+                            for m in rx.finditer(sent):
+                                lit = next((g for g in m.groups() if g),
+                                           m.group(0)).strip()
+                                locs = shared.setdefault(lit, {}).setdefault(tree, [])
+                                if f"{f}:{ln}" not in locs:
+                                    locs.append(f"{f}:{ln}")
                     if not md:
                         continue
                     for i, rx in enumerate(TOKEN_RES):
@@ -249,6 +277,17 @@ def fingerprint(paths):
     out.append(f"EXAMPLE TOKENS PER SECTION (read each set for one vertical): "
                f"{len(sections)} sections")
     out += ["  " + x for x in sections]
+    if len(trees) > 1:
+        multi = {k: v for k, v in shared.items() if len(v) > 1}
+        out.append(f"CROSS-TREE LITERALS (in anecdote sentences of more than one "
+                   f"of {len(trees)} skill trees — shared-provenance candidates, "
+                   f"read as one set; single digits not compared): {len(multi)}")
+        for lit, where in sorted(multi.items()):
+            out.append(f"  {lit!r} in {len(where)} trees")
+            out += [f"    {loc}" for t in sorted(where) for loc in where[t]]
+    else:
+        out.append("CROSS-TREE LITERALS: not run — one skill tree; pass every "
+                   "tree of a batch in one call")
     out.append("NOT LOOKED AT — read these by hand; this report is silent about them:")
     out.append(f"  binary files: {len(skipped['binary'])}"
                + "".join("\n    " + x for x in skipped["binary"]))
@@ -287,6 +326,20 @@ def selftest():
         (t / "references" / "data.csv").write_text("a,b\n1,2\n")
         (t / "logo.png").write_bytes(b"\x89PNG\x00\x00")
         out = "\n".join(fingerprint([str(t)]))
+        # Cross-tree pass: two skill trees sharing one anecdote figure.
+        for name, figure in (("alpha", "37"), ("beta", "37")):
+            s = pathlib.Path(d, "batch", name)
+            (s / "references").mkdir(parents=True)
+            (s / "SKILL.md").write_text(
+                f"# {name}\n\nIn one project, {figure} widgets and `{name}-only` "
+                f"went live late.\nThe gate reads 5 fields.\n", encoding="utf-8")
+            (s / "references" / "notes.md").write_text(
+                "# Notes\n\nThe gate reads 5 fields.\n", encoding="utf-8")
+        batch = [str(pathlib.Path(d, "batch", n)) for n in ("alpha", "beta")]
+        cross = "\n".join(fingerprint(batch))
+        cross_files = "\n".join(fingerprint(
+            [str(pathlib.Path(d, "batch", "alpha", "SKILL.md")),
+             str(pathlib.Path(d, "batch", "alpha", "references", "notes.md"))]))
     checks = {
         "two anecdote sentences (md prose + script docstring)":
             "ANECDOTE SENTENCES (marker + number in one sentence): 2" in out,
@@ -299,6 +352,16 @@ def selftest():
         "boundary names the table rows": "Markdown table rows: 2 in 1" in out,
         "boundary names the fenced lines": "fenced-block lines: 3 in 1" in out,
         "the report ends with its boundary": out.rstrip().endswith("reads are human"),
+        "one tree: the cross-tree pass says it did not run":
+            "CROSS-TREE LITERALS: not run" in out,
+        "two trees: a shared anecdote figure is listed once":
+            "candidates, read as one set; single digits not compared): 1" in cross
+            and "'37' in 2 trees" in cross,
+        "two trees: a literal in one tree only is not listed":
+            "alpha-only" not in cross.split("CROSS-TREE")[1],
+        "two trees: a shared number without a marker is not listed":
+            "'5'" not in cross,
+        "files of one skill are one tree": "CROSS-TREE LITERALS: not run" in cross_files,
     }
     # The tripwire scan: the reference shape in skill content only, and the
     # future-date rule on a drafts file beside the any-date rule elsewhere.

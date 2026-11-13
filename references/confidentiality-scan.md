@@ -243,6 +243,18 @@ complete unless it states its own boundary. Read the listed blind spots by
 hand; the report is a required pre-flight artefact beside the date shapes.
 `--selftest` checks the mode against a small fixture tree.
 
+**A batch is read as one set — the cross-tree pass, a batch step.** For
+a batch of first publications, or any sync that touches more than one
+repo, run `--fingerprint` once with every tree in the one call, never
+tree by tree. Given several skill trees, the report adds a
+`CROSS-TREE LITERALS` list: every number of two or more digits, and every
+backticked or quoted literal, that appears in anecdote sentences of more
+than one tree. Read each listed literal's sentences together, as one
+shared-provenance candidate, and record the verdict beside the per-skill
+reads. The failure shape: one engagement's figures sit in two skills
+staged together, each reads as a lone illustration, and together they
+describe one account.
+
 ### Open-source skills are standalone, or depend only on published open-source companions
 
 Standing rule: a published skill must never reference a skill the reader might

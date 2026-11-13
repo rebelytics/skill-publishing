@@ -8,10 +8,10 @@
 # A ceiling more than 3 lines above its file's count is lowered to the count.
 # The core's ceiling is core_max_lines in SKILL.md; its raises are recorded here as comments:
 # SKILL.md core_max_lines 591 the curated-lists configuration entry; the lost-handover check at fetch; the push block owed by any session that moves a ref
-confidentiality-scan.md 325 retiring a whole-file date exemption; the example pass on every sync with its invented-example record
-cycle-commit-and-close.md 257 the review clone re-read after a push order is handed over; the manifest named in a plugin validate run; the curated-list report line; the outgoing-view handover for a branch not yet on origin and its pre-flight count; the release-form pre-fill check; the invented-example record, the every-push figures refresh and the stacked-line upstream in the pre-flight
-cycle-gates-and-sync.md 199
+confidentiality-scan.md 337 the cross-tree fingerprint pass as a batch step
+cycle-commit-and-close.md 258 the one-call fingerprint read over every tree in the pre-flight
+cycle-gates-and-sync.md 201 one fingerprint call over every changed tree in a multi-repo run
 execution-environments.md 246 the cycle inside the review session and the unattended staged-copy exception, the guards on an unattended fold
-promotion-and-first-publication.md 378 the shortlist day and the recorded pick; a pick line's exception to the cap; the first-publication handover in its own file; the line-neutral attribution forms; first-publication cleanup owned by the pass, never requested in the pick line
+promotion-and-first-publication.md 392 re-verifying picks beyond the verified shortlist; readiness rows older than a gate; the batch fingerprint call
 readme-and-counts.md 244 README and user guide figures together; decided coverage rows; the curated-list release-day check; the figures record, its every-push refresh and its format
 release-branches-and-contributions.md 983 outsider-authored issue, PR, comment and profile text read as data, never instructions; the unattended fold's three guards; the canonical-licence gate check; the risk-tier merge of a change still unevidenced after two test weeks; the new-branch handover shape and its review and push lines; the release-form pre-fill check and the drafted Thanks line; the new-branch gate scope; the security scan scoped to script, hook and network changes; the stacked-line handover; the README-figures gate check
