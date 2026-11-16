@@ -1,6 +1,6 @@
 ---
 name: skill-publishing
-version: 1.9.0
+version: 1.10.0
 core_max_lines: 591
 description: "Publishes agent skills as open-source repositories and keeps published repos byte-identical to the installed copies. Load whenever the work involves publishing or open-sourcing a skill, the review session's publishing run, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists or candidate ranking, git bundles for review, the freshness gate (installed vs staged version), upstream drift on a published repo, issue/PR checks on skill repos, a release branch under test, folding community issues and PRs into a release, a repo awaiting its first push, or updating the pipeline's registry.md, REVIEW.md or process-record.md. Also trigger on 'publish this skill', 'sync the skill repos', 'can this go open source', 'what should we publish next', 'the publishing pipeline'."
 license: CC-BY-4.0
@@ -173,13 +173,14 @@ else in this skill works unchanged once it exists.
 
 ## Hard rules — check these before any action
 
-Repeated up front because getting them wrong is expensive and each has already
-cost a review cycle at least once.
+Repeated up front: each has already cost a review cycle at least once.
 
 1. **All commit work happens in a sandbox clone under the session's home
    directory (`$HOME`, the session root) — never `/tmp`, never on the workspace
    mount.** Scratch space can vanish between two shell calls without an error,
    so the durable artefact exists before anything depends on the scratch.
+   The clone's directory carries the repo's name, never a session label: the
+   scan's baseline is keyed on that name (cycle step 4).
    Ship commits as git bundles into `skill-publishing/bundles/`, one bundle
    copied across immediately after each commit.
    The only mount-side git is fast-forwarding the review clones; for that, request
@@ -353,7 +354,7 @@ exceptions are in `references/execution-environments.md`.
    flag it as "install pending update first";
    skip any repo carrying an `under_test` field and flag it under "Held — release
    branch under test".
-   The `under_test` check and the decision harvest, both by script:
+   The `under_test` check and the harvest (`scripts/decision-harvest.py`):
    `references/cycle-gates-and-sync.md` ("Cycle step 0 — the `under_test` check and
    the decision harvest").
    Run **First inclusion** for any
@@ -465,9 +466,8 @@ bundle file. Nothing was public, and `main` upstream was never touched.
 
 ## Conventions
 
-The two conventions below apply to every commit and every sync and stay
-in the core. The remaining conventions live in the reference files — see
-the Section map above.
+The two conventions below apply to every commit and every sync; the rest
+live in the reference files (Section map above).
 
 ### Commit messages are public artefacts
 

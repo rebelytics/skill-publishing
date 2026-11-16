@@ -124,6 +124,16 @@ assumptions hold as written:
   the grant, or probe it: create a scratch file under the connected root and
   unlink it; a refused unlink means re-request. The probe costs one call; a
   stranded lock blocks the maintainer's next command.
+  **Every mount-side git write in a bridged session carries the probe in
+  its own chain:** `touch "$W/.grant-probe-$$" && rm "$W/.grant-probe-$$"
+  && git …`, with `$W` the connected root. The reconnect notice that should
+  trigger the probe is often out of view when the git command is written.
+  Chained, a lapsed grant fails on the probe and strands nothing.
+- **The sweep's GraphQL query cannot run on the bridge shell:** it has no
+  `gh`, and unauthenticated GraphQL allows no calls. The sweep runs there on
+  unauthenticated REST, its budget counted per repo. Where the container's
+  `gh` is authenticated, the one query may run there instead. The report
+  names the channel the sweep used.
 
 Pre-flight item 10 and reporting item 2 accept "bridged" as the branch taken.
 

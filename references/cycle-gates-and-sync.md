@@ -9,7 +9,7 @@ for the rest. Cross-references resolve by name through the core's Section
 map, and "above" or "below" in a moved paragraph still names the core's
 section of that name.
 
-Load triggers: the start of every publishing run, or the first git command against the review clones in any session (the delete-grant probe); before syncing any repo (the freshness gate statement); cycle step 0 (the under_test check and the decision harvest); cycle step 3 (the frontmatter normaliser and the version holds); cycle step 4 (reading the confidentiality scan)
+Load triggers: the start of every publishing run, or the first git command against the review clones in any session (the delete-grant probe); before syncing any repo (the freshness gate statement); cycle step 0 (the under_test check, the decision harvest and the hold re-check); cycle step 3 (the frontmatter normaliser and the version holds); cycle step 4 (reading the confidentiality scan)
 
 ## Contents
 
@@ -92,7 +92,11 @@ naming another branch) — **stop and ask the maintainer rather than sync**,
 and record the field once confirmed. The same check names any remote
 `release/` ref whose version is not the row's branch as a leftover to
 delete (reference, "Cutting a release branch", reader side).
-**Harvest the decisions routed to this run — by script, never from recall.**
+**Harvest the decisions routed to this run — by script, never from recall:**
+`python3 scripts/decision-harvest.py --obs-dir <observation log>
+--publishing-dir <workspace>/skill-publishing --queue <backlog file>` prints
+the table and the sources it read; a source it prints as NOT READ (exit 2)
+is opened before the table counts.
 The writers are many sessions and the maintainer's own notes; the reader is
 one run, so the reader collects from every place a decision can land: every
 open or parked observation whose `skill:` names this skill or a published
@@ -102,13 +106,21 @@ backlog that names the publishing session or targets the repo ("README",
 "USER-GUIDE", "→ main" — a row with destination `main`), every workspace file
 with a "Queue for the … publishing session" heading, every `decisions-*.md`
 file in the publishing folder (the maintainer's decision notes), and every row
-of the previous `REVIEW.md`'s table that is not yet built. Write them into a
+of the previous `REVIEW.md`'s table that is not yet built — the script's
+three source flags read all of these. Write them into a
 `REVIEW.md` section **"Decided, awaiting build"** — the harvest's output; a
 table built by hand from recall or the previous `REVIEW.md` fails the
 pre-flight like a missing row. One row per item, with its status: *built this
 run*, *on branch X* or *blocked by Y*. Where the harvest and `registry.md`
 disagree about an item, the registry row wins and the harvest row says so. A
-harvested item with no row fails the pre-flight (item 14). **List every open
+harvested item with no row fails the pre-flight (item 14).
+**Every hold is re-checked, never trusted.** A `registry.md` hold row names
+its release condition (`held until <condition>`, with the decision that set
+it); the script lists each under "Holds to re-check". Read each condition
+against the current state, as a review reads `parked_until:`. A met
+condition clears the hold in this run, and what is left to build becomes a
+"Decided, awaiting build" row. A hold with no condition is a finding, never
+an open question re-asked from the row. **List every open
 issue with no row in the current triage file and no open-on-purpose reason**
 beside that table — an orphaned promise is found here, not by its reporter
 (reference, "Release branch under test", the `refs` sweep); an issue's text is

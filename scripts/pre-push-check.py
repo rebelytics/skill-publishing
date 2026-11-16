@@ -32,6 +32,11 @@ are what the push publishes — each offender named by sha:
                        message names paths and the diff touches any path not
                        under them (and not under an --allow-path), or when the
                        message names no path and the diff exceeds --max-files.
+                       Paths are read from the `Files:` line only (and its
+                       indented continuation lines); a file name elsewhere in
+                       the body is prose and claims nothing. On that line a
+                       bare word naming a file in the tree, or LICENSE,
+                       README, CONTRIBUTING or NOTICE, is a path too.
   3. confidentiality   `#1\\d{3}` anywhere in the message of any commit in
                        scope (an observation id), any internal filename
                        (PENDING.md, registry.md, process-record.md,
@@ -50,6 +55,11 @@ are what the push publishes — each offender named by sha:
                        pipeline's trailer block carries human credit only.
                        Contributor-authored commits and history already on
                        origin are never checked for this.
+                       "3 credit-trailers": over the same commits, every
+                       `Co-authored-by:` / `Reported-by:` line must be one
+                       git's trailer parser returns (`%(trailers:only)`); a
+                       credit line sharing a paragraph with a `Refs #N` line
+                       is prose to git and refuses.
   4. signature         --pre-bundle: every commit in scope must carry NO
                        signature (no `gpgsig` header) — a sandbox signature is
                        never the maintainer's. At push to --target-branch
@@ -173,6 +183,14 @@ NOREPLY_RE = re.compile(r"<\s*(?:\d+\+)?([^@\s>]+)@users\.noreply\.github\.com\s
 PATH_TOKEN_RE = re.compile(
     r"(?<![\w@])((?:[\w.-]+/)+[\w.-]*(?![\w.-])"
     r"|[\w-]+\.(?:md|py|sh|yml|yaml|json|txt|toml|cfg)\b)")
+# A path claim is read only from a line that declares one; a file name
+# anywhere else in the body is prose. Indented lines below it continue it.
+FILES_LINE_RE = re.compile(r"^\s*Files:\s*(.*)$", re.I)
+# On a Files: line a bare word also names a path when the tree carries it
+# as a filename, or when it is one of the extensionless repo-root files.
+BARE_WORD_RE = re.compile(r"(?<![\w./-])([A-Za-z0-9_][\w.-]*[\w])(?![\w/-])")
+BARE_REPO_FILES = {"LICENSE", "README", "CONTRIBUTING", "NOTICE"}
+CREDIT_LINE_RE = re.compile(r"^\s*(co-authored-by|reported-by)\s*:", re.I)
 LIST_ITEM_RE = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+\S")
 # AI-tool attribution: not a person, never credit. A list — extend here.
 AI_TOOL_RE = re.compile(
@@ -357,14 +375,31 @@ def check_closing_keywords(rep, message, repo=None, scope=()):
                     "nothing; fine if deliberate): " + "; ".join(prose)])
 
 
+def files_claim(body):
+    """The text of every `Files:` line and its indented continuation lines;
+    "" when the body declares no path claim."""
+    out, inside = [], False
+    for line in body.splitlines():
+        m = FILES_LINE_RE.match(line)
+        if m:
+            out.append(m.group(1))
+            inside = True
+        elif inside and line[:1] in (" ", "\t") and line.strip():
+            out.append(line.strip())
+        else:
+            inside = False
+    return " ".join(out)
+
+
 def check_diff_vs_claim(rep, repo, commit, message, max_files, allow_paths):
     files = [f for f in git(repo, "diff-tree", "--no-commit-id", "--name-only",
                             "-r", "--root", commit).splitlines() if f]
     body, _ = split_message(message)
-    # A token counts as a named path if it carries a file extension, or if
-    # the tree knows it as a tracked file or a directory prefix of one (this
-    # commit or its parent, for deletions). "and/or" in prose must not become
-    # a path the diff violates; "SKILL.md" or "scripts/" must.
+    claim = files_claim(body)
+    # A token on the Files: line counts as a named path if it carries a file
+    # extension, or if the tree knows it as a tracked file or a directory
+    # prefix of one (this commit or its parent, for deletions). "and/or" must
+    # not become a path the diff violates; "SKILL.md" or "scripts/" must.
     tracked = set(git(repo, "ls-tree", "-r", "--name-only", commit).splitlines())
     if git(repo, "rev-list", "--parents", "-n", "1", commit).split()[1:]:
         tracked |= set(git(repo, "ls-tree", "-r", "--name-only",
@@ -373,14 +408,19 @@ def check_diff_vs_claim(rep, repo, commit, message, max_files, allow_paths):
             for i in range(1, len(f.split("/")))}
     names = {f.split("/")[-1] for f in tracked}
     named = set()
-    for tok in PATH_TOKEN_RE.findall(body):
+    for tok in PATH_TOKEN_RE.findall(claim):
         tok = tok[2:] if tok.startswith("./") else tok
         tok = tok.rstrip("./")
         if (tok in tracked or tok in dirs or ("/" not in tok and tok in names)
                 or re.search(r"\.(md|py|sh|yml|yaml|json|txt|toml|cfg)$", tok)):
             named.add(tok)
+    for tok in BARE_WORD_RE.findall(PATH_TOKEN_RE.sub(" ", claim)):
+        if tok in names or tok in BARE_REPO_FILES:
+            named.add(tok)
     named |= {p.strip("/") for p in allow_paths}
     ev = [f"changed files: {len(files)}"] + [f"  {f}" for f in files]
+    ev.append("path claim: " + (f"Files: line, {claim.strip()!r}" if claim
+              else "no Files: line (file names in prose are not a claim)"))
     if named:
         ev.append("paths the message names (+ --allow-path): "
                   + ", ".join(sorted(named)))
@@ -470,6 +510,44 @@ def check_confidentiality(rep, message, terms, vendor_terms=(), repo_name="",
         rep.result("3 confidentiality", "FAIL", ev + ["hit: " + h for h in hits])
     else:
         rep.result("3 confidentiality", "PASS", ev)
+
+
+def unparsed_credit_lines(repo, commit):
+    """Credit lines in the message that git's own trailer parser does not
+    return — a `Co-authored-by:` sharing a paragraph with a `Refs #N` line
+    is prose to git, and to the platform that renders co-authors."""
+    msg = git(repo, "log", "-1", "--format=%B", commit)
+    parsed = git(repo, "log", "-1", "--format=%(trailers:only,unfold)", commit)
+    got = [l.strip().lower() for l in parsed.splitlines() if l.strip()]
+    missing = []
+    for l in msg.splitlines():
+        if CREDIT_LINE_RE.match(l):
+            key = re.sub(r"\s*:\s*", ": ", l.strip(), count=1).lower()
+            if key in got:
+                got.remove(key)
+            else:
+                missing.append(l.strip())
+    return missing
+
+
+def check_credit_trailers(rep, repo, scope, maintainer_email=""):
+    """Check 3's credit half: every credit line in a pipeline-built commit
+    is a trailer git parses. Contributor-authored commits are left as
+    submitted; without a Commit email every commit in scope is read."""
+    hits, read = [], 0
+    for c in scope:
+        if maintainer_email and git(repo, "log", "-1", "--format=%ae",
+                                    c).strip().lower() != maintainer_email.lower():
+            continue
+        read += 1
+        for l in unparsed_credit_lines(repo, c):
+            hits.append(f"{c[:12]} not a trailer to git (give the credit lines "
+                        f"their own final paragraph): {l}")
+    ev = [f"credit lines parsed with git's trailer parser: {read} of "
+          f"{len(scope)} commits in scope read"
+          + ("" if maintainer_email else " (no Commit email: all read)")]
+    rep.result("3 credit-trailers", "FAIL" if hits else "PASS",
+               ev + ["hit: " + h for h in hits])
 
 
 def signature_header(repo, commit):
@@ -1141,7 +1219,9 @@ def selftest():
     command-block
     lint (unquoted glob metacharacters in a handed-over shell block),
     the canonical-licence comparison (check 7), directories named with a
-    trailing slash beside a prose "and/or" (check 2), and current, stale,
+    trailing slash beside a prose "and/or", a bare LICENSE on a Files: line
+    and a file name in prose with no Files: line (check 2), a credit line
+    sharing a paragraph with a Refs line (check 3), and current, stale,
     drifted and unanchored README figures (check 8). Git
     runs with the global and system config ignored, so the environment's own
     signing default cannot leak into the fixture."""
@@ -1544,6 +1624,59 @@ def selftest():
                lambda r: check_diff_vs_claim(r, mv, mv_tip,
                                              "Tidy the and/or wording\n", 1, []),
                {"2 diff-vs-claim": "FAIL"}, "message names no path")
+        # Check 2: a bare LICENSE on a Files: line is a path; a file name in
+        # prose with no Files: line is no claim (the max-files branch).
+        lc = fixture_repo("licence-repo", {"README.md": "x\n"})
+        for rel in ("LICENSE", "SKILL.md", "scripts/tool.py"):
+            (lc / rel).parent.mkdir(parents=True, exist_ok=True)
+            (lc / rel).write_text("y\n", encoding="utf-8")
+        lc_msg = ("Add the licence and the tool\n\nThe tool reads recipes.\n\n"
+                  "Files: LICENSE, SKILL.md,\n  scripts/tool.py.\n")
+        git(lc, "add", "-A")
+        git(lc, "commit", "-q", "-m", lc_msg)
+        lc_tip = git(lc, "rev-parse", "HEAD").strip()
+        expect("diff-vs-claim: a bare LICENSE on a Files: line is a path",
+               lambda r: check_diff_vs_claim(r, lc, lc_tip, lc_msg, 25, []),
+               {"2 diff-vs-claim": "PASS"},
+               "paths the message names (+ --allow-path): LICENSE, SKILL.md, "
+               "scripts/tool.py")
+        expect("diff-vs-claim: Files: line missing a changed file refuses",
+               lambda r: check_diff_vs_claim(r, lc, lc_tip,
+                                             "Add it\n\nFiles: SKILL.md\n", 25, []),
+               {"2 diff-vs-claim": "FAIL"}, "changed but not named by the "
+               "message: LICENSE, scripts/tool.py")
+        expect("diff-vs-claim: a file name in prose is no claim",
+               lambda r: check_diff_vs_claim(
+                   r, lc, lc_tip, "Tighten the tool\n\nThe tool.py parser now "
+                   "groups recipes by course.\n", 25, []),
+               {"2 diff-vs-claim": "PASS"},
+               "message names no path; 3 <= --max-files 25")
+
+        # Check 3: credit lines git's trailer parser does not return.
+        ct = fixture_repo("credit-repo", {"SKILL.md": "x\n"})
+        ct_base = git(ct, "rev-parse", "HEAD").strip()
+        git(ct, "update-ref", "refs/remotes/origin/main", ct_base)
+
+        def credit_commit(msg):
+            (ct / "SKILL.md").write_text((ct / "SKILL.md").read_text() + "x\n")
+            git(ct, "commit", "-q", "-a", "-m", msg)
+            return git(ct, "rev-parse", "HEAD").strip()
+        shared = credit_commit("Fix the scan\n\nThe scan reads every file.\n\n"
+                               "Refs #7\nCo-authored-by: Dana "
+                               f"<4+dana@{noreply}>\n")
+        expect("credit-trailers: a credit line sharing a paragraph with Refs "
+               "refuses", lambda r: check_credit_trailers(
+                   r, ct, scope_commits(ct, shared, "main")[0], "me@example.org"),
+               {"3 credit-trailers": "FAIL"}, "Co-authored-by: Dana")
+        git(ct, "update-ref", "refs/remotes/origin/main", shared)
+        own = credit_commit("Fix the scan\n\nThe scan reads every file.\n\n"
+                            "Refs #7\n\nCo-authored-by: Dana "
+                            f"<4+dana@{noreply}>\nReported-by: Eli "
+                            f"<5+eli@{noreply}>\n")
+        expect("credit-trailers: credit lines in their own final paragraph pass",
+               lambda r: check_credit_trailers(
+                   r, ct, scope_commits(ct, own, "main")[0], "me@example.org"),
+               {"3 credit-trailers": "PASS"}, "1 of 1 commits in scope read")
 
         # Check 8: README figures against the figures record.
         fr = fixture_repo("fig-repo", {"README.md": "Install it: the registry "
@@ -1751,6 +1884,7 @@ def main():
     check_confidentiality(rep, message, terms,
                           load_vendor_subject(a.config, repo_name), repo_name,
                           repo, scope, cfg.get("commit email", ""))
+    check_credit_trailers(rep, repo, scope, cfg.get("commit email", ""))
     heads, heads_note = pr_heads(repo)
     check_signature(rep, repo, sha, a.target_branch, a.allow_unverifiable_signature,
                     a.pre_bundle, scope, cfg.get("signing key", ""),

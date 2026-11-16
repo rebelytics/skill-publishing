@@ -52,7 +52,9 @@ branch rewritten after it reached origin** (rebase, message-only rewrite,
 retroactive scrub) cannot fast-forward: load
 `references/release-branches-and-contributions.md` ("Handover shapes in
 REVIEW.md — the prescribed fetch form and the rewritten branch") before
-writing that branch's `REVIEW.md` instructions.
+writing that branch's `REVIEW.md` instructions. Load the same section before
+any handover block: the merge moves the checked-out branch, and a line that
+rewrites history is run on a shared clone first.
 **Every branch the maintainer will review shows its commits as outgoing in
 the review clone, unasked.** A branch on origin gets the fast-forward. A
 branch not yet on origin is rebased onto the current `origin/main` in the
@@ -146,6 +148,12 @@ unpushed local `main` gives identical reject-safety via `reset --hard origin/mai
 
 ### Pre-flight — run before writing REVIEW.md or handing anything back
 
+**A run split across delegates checks this list as a join over the
+briefs.** The parent's report carries every item below with one line: done
+(where), delegated (the brief, and the line of its return that covers the
+item), or not run (why). An item with no line fails the report, because
+delegation drops every step no brief names.
+
 1. Nothing was pushed, and no git ran on the mount beyond the fast-forward.
 2. Every repo with changes has a bundle in `bundles/`, and each bundle passed
    `git bundle verify`.
@@ -234,11 +242,13 @@ unpushed local `main` gives identical reject-safety via `reset --hard origin/mai
     `references/`, or one the core never points at — **fails the pre-flight
     the way a missing `LICENSE` does**; the restructure happens at the live
     skill via review-and-install, never in the repo.
-13. **Every PR closed as shipped this run has a per-point coverage record in
-    `REVIEW.md`** — `scripts/pr-coverage.py` against a fresh clone of the tag
+13. **Every PR closed as shipped, and every issue closed as answered, this
+    run has a per-point coverage record in `REVIEW.md`** —
+    `scripts/pr-coverage.py` against a fresh clone of the tag
     and, below its threshold, file and line on `main` per point (reference,
     Responding, step 1). A point without a line is *partially shipped*, never closed.
-14. **Every harvested decision has a row.** Re-run the step 0 harvest now
+14. **Every harvested decision has a row.** Re-run
+    `scripts/decision-harvest.py` now
     and join it against `REVIEW.md`'s "Decided, awaiting build" table: a
     harvested item with no row **fails** the pre-flight — "read each one"
     is the rule that already failed, so the barrier is structural, not a
@@ -250,7 +260,8 @@ unpushed local `main` gives identical reject-safety via `reset --hard origin/mai
 16. The report covers all nine items of the Reporting contract above.
 17. **Every branch named in the push order shows its commits as outgoing**
     in the review clone: its upstream is set, and `git rev-list --count
-    '<branch>@{upstream}..<branch>'` equals the count `REVIEW.md` states.
+    '<branch>@{upstream}..<branch>'` equals the count `REVIEW.md` states,
+    and `REVIEW.md` names the checked-out branch the count was taken on.
     For a line stacked on an unpushed `main`, the post-push load command
     contains the set-upstream step.
 18. **Every release-form pre-fill this run has check 5's PASS line** from

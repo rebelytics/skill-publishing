@@ -2,6 +2,8 @@
 
 Open-source skill that **publishes agent skills as open-source repositories and keeps the published repos byte-identical to the installed copies**: one repo per skill, a freshness gate between installed and staged versions, a confidentiality scan over every file, commits built in a sandbox and handed over as git bundles, and a push gate run before every push. Load it into any MCP-capable AI agent (Claude, Cursor, Codex, n8n, etc.).
 
+Part of the [Open Skill Library](https://github.com/rebelytics/one-skill-to-rule-them-all/blob/main/OPEN-SKILL-LIBRARY.md), the open-source agent skills maintained with Task Observer.
+
 ## When it triggers
 
 Publishing or open-sourcing a skill, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists, upstream drift on a published repo, issue and PR checks on skill repos, a release branch under test, folding community contributions into a release, or a repo awaiting its first push.
@@ -10,7 +12,7 @@ Publishing or open-sourcing a skill, syncing a skill repo, creating a repo, READ
 
 - `SKILL.md` — the configuration contract, the hard rules, the workspace state, the cycle, the public-artefact conventions and the pointer list for the reference files.
 - `references/` — the cycle step bodies (`cycle-gates-and-sync.md`, `cycle-commit-and-close.md`), promotion and first publication, release branches and contributions, README rules, the confidentiality scan and the execution environments; `ceilings.txt` holds the line ceilings the skill validator reads.
-- `scripts/` — `confidentiality_scan.py`, `pre-push-check.py`, `cut-release-branch.py`, `pr-coverage.py`.
+- `scripts/` — `confidentiality_scan.py`, `pre-push-check.py`, `cut-release-branch.py`, `pr-coverage.py`, `decision-harvest.py`.
 - `LICENSE` — CC BY 4.0.
 
 ## Install
