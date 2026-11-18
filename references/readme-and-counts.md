@@ -100,6 +100,23 @@ row wherever it sits in the file:
   so the README's thousands separator is a style choice.
 - **Fetched** — the date of the uncached read, `YYYY-MM-DD`.
 
+**A pinned launcher version is a figure with a freshness date.** An
+install line that pins its launcher (`npx <launcher>@X.Y.Z add …`) ages
+while the launcher and the directory behind it change, and nothing else
+re-tests the route. So, on every push to `main` of such a repo, a merge's
+push included, run the latest launcher route once in a throwaway
+directory. On success, bump the pin to the version that ran. On failure,
+keep the pin and say why in `REVIEW.md` and the run summary. Every
+published repo whose README pins a launcher has a row for the pin, so
+gate check 8 refuses a push whose pin was not checked that day:
+
+```
+| <repo> | README.md | `npx <launcher>@{} add` | `npx <launcher>@latest add <owner>/<repo> --skill <skill>` | 1.4.2 | 1 | YYYY-MM-DD |
+```
+
+Value is the pin as written and Round is 1; the gate compares digits
+only, so `1.4.2` reads as 142 and a pin of `14.2` would pass it too.
+
 **Recommended-by intake.** Where a README carries a "Recommended by" or
 "Listed in" list, it grows whenever someone links the project, and only the
 maintainer notices. An intake that asks the maintainer for links while a

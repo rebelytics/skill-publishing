@@ -243,6 +243,22 @@ complete unless it states its own boundary. Read the listed blind spots by
 hand; the report is a required pre-flight artefact beside the date shapes.
 `--selftest` checks the mode against a small fixture tree.
 
+**Every file that ships is in scope — `ceilings.txt` included.** The
+recognisability reads and the dated-claim scan cover every non-Markdown
+file in the bundle, not only its prose: `references/ceilings.txt`, script
+docstrings, data files. A ceilings raise reason feels like bookkeeping,
+but it ships in the bundle and its history, so it is held to the rules of
+skill content. It states what the file now contains, never where the
+lines came from: no "found", "reported", "a review", no date, no "later
+illustrated". The fingerprint report prints every raise reason under
+`CEILINGS REASONS` and marks the provenance words it carries. Every sync
+of a repo that ships a `ceilings.txt` diffs its reasons against the last
+published tree before the commit (`git diff origin/main --
+'*ceilings.txt'` in the sandbox clone) and reads each changed reason once.
+The failure shape: a reason records which review found the lines and in
+which trade they were first illustrated, and read beside the content it
+points back at the engagement the content scrub removed.
+
 **A batch is read as one set — the cross-tree pass, a batch step.** For
 a batch of first publications, or any sync that touches more than one
 repo, run `--fingerprint` once with every tree in the one call, never

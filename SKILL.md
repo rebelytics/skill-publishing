@@ -1,6 +1,6 @@
 ---
 name: skill-publishing
-version: 1.10.0
+version: 1.11.0
 core_max_lines: 591
 description: "Publishes agent skills as open-source repositories and keeps published repos byte-identical to the installed copies. Load whenever the work involves publishing or open-sourcing a skill, the review session's publishing run, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists or candidate ranking, git bundles for review, the freshness gate (installed vs staged version), upstream drift on a published repo, issue/PR checks on skill repos, a release branch under test, folding community issues and PRs into a release, a repo awaiting its first push, or updating the pipeline's registry.md, REVIEW.md or process-record.md. Also trigger on 'publish this skill', 'sync the skill repos', 'can this go open source', 'what should we publish next', 'the publishing pipeline'."
 license: CC-BY-4.0
@@ -34,11 +34,12 @@ from this core file. If you notice an episode was handled without its reference 
 - `references/promotion-and-first-publication.md` — the promotion step
   (both phases, including the progressive-disclosure structure gate), the
   standard repo structure and licence for new repos, git identity pinning and
-  mis-attribution repair, the parked repo's conditional sync and squash, and the
-  first-inclusion procedure for a published repo with no review clone. **Load
-  after the sync cycle before ranking candidates, when the maintainer picks a
-  skill for publication, when building or pushing a new repo, when a repo sits
-  at `awaiting-first-push`, and before running First inclusion.**
+  mis-attribution repair, the parked repo's conditional sync and squash, the
+  first-inclusion procedure for a published repo with no review clone, and the
+  plugin-directory submission. **Load after the sync cycle before ranking
+  candidates, when the maintainer picks a skill for publication, when building
+  or pushing a new repo, when a repo sits at `awaiting-first-push`, before
+  running First inclusion, and before a plugin-directory submission.**
 - `references/release-branches-and-contributions.md` — the release branch
   under test (hold, the merge review on the configured release day, merge evidence,
   the release security scan as a same-environment pair, GitHub mechanic),
@@ -112,7 +113,7 @@ Named cross-references in this skill ("see Release branch under test",
 | No dated first-party claims — in commit messages OR skill files | `SKILL.md` |
 | Standard repo structure (new repos); Licence; Attribution migration — every line the shape touches | `references/promotion-and-first-publication.md` |
 | Registry-publishing CI — gate releases on a version change | `references/readme-and-counts.md` |
-| Promotion step (Phase 1 — autonomous, incl. the structure gate; Phase 2 — interactive) | `references/promotion-and-first-publication.md` |
+| Promotion step (Phase 1 — autonomous, incl. the structure gate; Phase 2 — interactive); Plugin directory submission | `references/promotion-and-first-publication.md` |
 | Contributions — the sweep every cycle | `SKILL.md` |
 | Cutting a release branch — one scripted act; Folding contributions in — the test-branch convention; Closing keywords bind to one reference each; Monitoring — every cycle; Monitoring — the repo-wide comment sweep; Responding — when issues and PRs need answers; Push gate — `scripts/pre-push-check.py` stands between the work and the push; Credit is per-surface — the credit contract | `references/release-branches-and-contributions.md` |
 | Excluded | `SKILL.md` |
@@ -567,19 +568,18 @@ before the run starts — see First inclusion, step 4.
 
 ## Reporting — the run's output contract
 
-Every run ends with a report covering these, in this order. This is the run's
-deliverable, not a summary of it; a run that omits an item has not finished.
-
-The nine items, in order: `references/cycle-commit-and-close.md` ("Reporting — the
-run's output contract").
+Every run ends with a report covering the contract's items, in order:
+`references/cycle-commit-and-close.md` ("Reporting — the run's output contract").
+This is the run's deliverable, not a summary of it; a run that omits an item has
+not finished.
 
 ## Pre-flight — run before writing REVIEW.md or handing anything back
 
 Re-read the hard rules and check the run's output against them:
 
-The sixteen items: `references/cycle-commit-and-close.md` ("Pre-flight — run before
-writing REVIEW.md or handing anything back"); a run that has not checked
-every one of them has not finished.
+Every item of the pre-flight list: `references/cycle-commit-and-close.md`
+("Pre-flight — run before writing REVIEW.md or handing anything back"); a
+run that has not checked every one of them has not finished.
 
 ## Feedback on this skill
 

@@ -17,6 +17,10 @@ is the shape nothing downstream can detect.
                                            `under_test` must equal the newest
                                            `release/` staging in the manifest;
                                            exit 1 on any mismatch (cycle step 0).
+                                           A row cleared `by merge vX.Y.Z`
+                                           retires a staging of that same
+                                           version (OK); any other version
+                                           is still a mismatch.
                                            Where a review clone exists under
                                            <workspace>/skill-publishing/repos/
                                            <repo>/ (--repos overrides; <repo>
@@ -79,6 +83,8 @@ WEEKDAYS = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
 UT_VALUE_RE = re.compile(
     r"under_test:\s*(release/v[^\s`*|]+(?:\s*\([^)]*\))?|cleared\b[^`*|]*)")
 RELEASE_RE = re.compile(r"release/v(\d+\.\d+\.\d+)")
+# The version a cleared value records as merged (`cleared <date> by merge vX.Y.Z`).
+MERGED_RE = re.compile(r"\bby merge v(\d+\.\d+\.\d+)\b")
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 SKILL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 # A registry row key that can name a skill: letter-led kebab-case. Numbered
@@ -305,6 +311,20 @@ def registry_under_test(registry):
     return out
 
 
+def registry_merged(registry):
+    """{skill: release/vX.Y.Z} for every row whose field is cleared by a
+    merge of a named version: that version's staging is retired."""
+    out = {}
+    for l in registry.read_text(encoding="utf-8").splitlines():
+        k = row_key(l)
+        m = UT_VALUE_RE.search(l) if k else None
+        if m and m.group(1).startswith("cleared"):
+            mm = MERGED_RE.search(m.group(1))
+            if mm:
+                out[k] = f"release/v{mm.group(1)}"
+    return out
+
+
 def registry_repos(registry):
     """{skill: repository name} from each row's second cell (`owner/repo`);
     a row that names no repository is absent, and its clone is looked up
@@ -409,6 +429,7 @@ def cmd_check(a):
             encoding="utf-8").splitlines()) if k}
     skills |= pub
     man = manifest_release_stagings(manifest, skills)
+    merged = registry_merged(registry)
     bad = []
     for s in sorted(skills):
         if a.skill and s != a.skill:
@@ -421,10 +442,15 @@ def cmd_check(a):
             print(f"[OK]   {s}: registry {r} == newest manifest release staging {m}")
         elif not held and m is None:
             print(f"[OK]   {s}: registry {r}, no release staging in the manifest")
+        elif r == "cleared" and merged.get(s) == m:
+            print(f"[OK]   {s}: registry cleared by merge v{m[len('release/v'):]}; "
+                  f"newest manifest release staging {m} is retired (same version)")
         elif not held and m is not None:
+            state = (f"cleared by merge {merged[s][len('release/'):]}"
+                     if s in merged else r or "absent")
             bad.append(f"{s}: manifest names {m} but registry under_test is "
-                       f"{r or 'absent'} — the hold was not written (or a "
-                       f"merge cleared it without retiring the staging)")
+                       f"{state} — the hold was not written, or the merge "
+                       f"cleared a different version")
         else:
             bad.append(f"{s}: registry under_test {r} but newest manifest release "
                        f"staging is {m or 'absent'}")
@@ -496,6 +522,12 @@ def selftest():
 
 Staging anchor: `skill-updates/INSTALL-DATE/alpha-skill`.
 """
+    # An older staging of a branch the registry records as merged.
+    retired = """
+## CUT-DATE — beta-skill `release/v1.1.0` branch line — release-branch staging
+
+Staging anchor: `skill-updates/CUT-DATE/beta-skill`.
+"""
     # (name, registry, manifest, exit wanted, remotes {skill: [branches]},
     #  lines that must appear, lines that must not)
     cases = [("registry with numbered rows agrees", registry, manifest, 0,
@@ -538,7 +570,17 @@ Staging anchor: `skill-updates/INSTALL-DATE/alpha-skill`.
               {"one-alpha-repo": ["release/v3.4.0", "release/v3.3.0"]},
               ["[LEFTOVER] alpha-skill: release/v3.3.0 (",
                "[OK]   alpha-skill: remote release/ refs:"],
-              ["[SKIP] alpha-skill", "RESULT: WARNING"])]
+              ["[SKIP] alpha-skill", "RESULT: WARNING"]),
+             ("cleared by merge v1.1.0 + manifest release/v1.1.0 heading: the "
+              "staging is retired, OK", registry, manifest + retired, 0, {},
+              ["[OK]   beta-skill: registry cleared by merge v1.1.0; newest "
+               "manifest release staging release/v1.1.0 is retired"],
+              ["[MISMATCH]"]),
+             ("cleared by merge v1.1.0 + manifest release/v1.2.0 heading: a "
+              "different version is a mismatch", registry,
+              manifest + retired.replace("v1.1.0", "v1.2.0"), 1, {},
+              ["[MISMATCH] beta-skill: manifest names release/v1.2.0 but "
+               "registry under_test is cleared by merge v1.1.0"], [])]
     failed = 0
     for name, reg, man, want, remotes, must, must_not in cases:
         with tempfile.TemporaryDirectory() as d:

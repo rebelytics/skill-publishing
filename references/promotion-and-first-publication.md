@@ -7,7 +7,7 @@ publication, when building or pushing a new repo, when a repo sits at
 were moved from the skill core or added here as the step grew; headings and
 step numbers match the core's cross-references, which resolve by name.
 
-Load triggers: after the sync cycle, before ranking candidates or presenting a shortlist; when the maintainer picks a skill for publication (the first-publication pass); when building or pushing a new repo; when a repo sits at awaiting-first-push (conditional sync, the squash before the first push); before running First inclusion; when a commit's attribution looks wrong (Git identity); when a published skill's attribution block, licence statement or LICENSE is migrated to the house shape
+Load triggers: after the sync cycle, before ranking candidates or presenting a shortlist; when the maintainer picks a skill for publication (the first-publication pass); when building or pushing a new repo; when a repo sits at awaiting-first-push (conditional sync, the squash before the first push); before running First inclusion; when a commit's attribution looks wrong (Git identity); when a published skill's attribution block, licence statement or LICENSE is migrated to the house shape; before a plugin is submitted to a plugin directory
 
 ### Standard repo structure (new repos)
 
@@ -262,7 +262,10 @@ Per pick, run the first-publication pass:
 
 - Confidentiality layers 2–5 incl. the cross-product re-identifiability
   sweep — for a batch, one `--fingerprint` call over all of its trees, with
-  the cross-tree list read as one set; client-identifier scan against the
+  the cross-tree list read as one set, and the recognisability read
+  covering every non-Markdown file, `ceilings.txt` reasons included
+  (`references/confidentiality-scan.md`, "Every file that ships is in
+  scope"); client-identifier scan against the
   configuration file's tripwire list must be clean (tripwire rules apply).
 - **No dated first-party claims** in any date format — the scan's `--dates`
   mode, with the shapes that ran recorded. A dated `## History` or
@@ -390,3 +393,30 @@ git bundle create <repo>-<date>.bundle HEAD main && git bundle verify <repo>-<da
 - The pre-flight (core, item 9) checks that every repo at
   `awaiting-first-push` carries exactly one commit before `REVIEW.md`
   hands it over.
+
+### Plugin directory submission — the portal's verdict, not the local one
+
+A local `claude plugin validate .` that passes is not the directory's
+verdict: the directory's own validation applies policy the local validator
+does not read. Before a plugin is submitted to a directory:
+
+1. **Run the directory portal's Validate on the exact commit to submit.**
+   Triage every hold it reports as *leave* (it does not apply; say why, for
+   the directory's reviewer to confirm), *fix* (on a branch, through the
+   push gate), or *future refusal* (a rule announced for later; record the
+   trigger that makes it bind). The triage table goes into `REVIEW.md`, and
+   the submission waits until every hold has a verdict.
+2. **Fill the listing fields in `plugin.json`:** `documentationUrl`,
+   `supportUrl` and `privacyPolicyUrl`. Without them a listing preview can
+   take its links from the README, a third-party catalogue link included.
+3. **Read the directory's publisher rules against what the repo ships.**
+   Observed on one directory at last verification: submissions from an
+   organisation without verified status were refused automatically for
+   shipped scripts and other non-allowed file types (any `.sh`, `.py` or
+   `.ts` file, or any file starting with `#!`), and for `SKILL.md`
+   frontmatter keys outside the directory's allowed list. A skill that
+   ships helper scripts then needs a scripts-free edition or the verified
+   status, and that choice is the maintainer's.
+
+The portal steps and the submission itself are the maintainer's; the run
+prepares the triage table and the field values.

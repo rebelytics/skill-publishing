@@ -52,9 +52,12 @@ sees when they all come from one vertical. Given several skill trees (a file
 belongs to the nearest directory above it holding a SKILL.md), it also lists
 (c) every number or backticked/quoted literal found in anecdote sentences of
 more than one tree — shared-provenance candidates, read as one set; pass a
-batch's trees in one call. The output ENDS by naming what it
+batch's trees in one call. It prints (d) every raise reason in a
+ceilings.txt — public text, since the file ships with the skill — marking
+words that say where lines came from ("found", "a review", "later", a date)
+rather than what the file contains. The output ENDS by naming what it
 did not look at — binaries, data and fixture files, Markdown tables, fenced
-blocks, tokens in non-Markdown files — because an extract that bounds a
+blocks, tokens in other non-Markdown files — because an extract that bounds a
 reader's attention must state its own boundary, or reading it passes for the
 check.
 
@@ -165,6 +168,27 @@ FIXTURE_PARTS = {"fixture", "fixtures", "testdata", "samples", "sample-data"}
 # more digits and backticked or quoted strings — compared across skill trees.
 # A single digit is not compared: it repeats between any two trees.
 LITERAL_RES = [re.compile(r"(?<![\w-])\d[\d,.]*\d\b"), TOKEN_RES[0], TOKEN_RES[1]]
+# Ceilings reasons ship inside the bundle: each is read as public text, and
+# words that say where lines came from (rather than what they are) are marked.
+CEILINGS_NAME = "ceilings.txt"
+PROVENANCE_RE = re.compile(
+    r"\b(?:found|reported|a review|reviewed|later|illustrated|observed|"
+    r"20\d{2}-\d{2}-\d{2})\b|(?<![\w&])#\d{2,4}\b", re.I)
+
+
+def ceiling_reason(line):
+    """(file, reason) for a ceilings line that carries a reason — `<file.md>
+    <n> <reason>`, the core's `# SKILL.md core_max_lines <n> <reason>` record
+    and `split_pending: <file.md> <reason>` — else None."""
+    tokens = line.strip().lstrip("#").split()
+    if len(tokens) > 1 and tokens[0] == "split_pending:":
+        return (tokens[1], " ".join(tokens[2:])) if len(tokens) > 2 else None
+    if not tokens or not tokens[0].endswith(".md"):
+        return None
+    n = next((i for i in (1, 2) if i < len(tokens) and tokens[i].isdigit()), None)
+    if n is None or n + 1 >= len(tokens):
+        return None
+    return tokens[0], " ".join(tokens[n + 1:])
 
 
 def tree_of(f, root):
@@ -178,7 +202,7 @@ def tree_of(f, root):
 
 def fingerprint(paths):
     """Report lines for the fingerprint pass; never a verdict."""
-    anecdotes, sections = [], []
+    anecdotes, sections, reasons, ceiling_files = [], [], [], []
     shared = {}  # literal -> {tree: [file:line, ...]}
     trees = set()
     skipped = {"binary": [], "data/fixture": [], "tables": {}, "fenced": {},
@@ -202,9 +226,19 @@ def fingerprint(paths):
             md = f.suffix.lower() in (".md", ".markdown")
             tree = tree_of(f, root)
             trees.add(tree)
-            if not md:
-                skipped["non-markdown"].append(str(f))
             text = raw.decode("utf-8", errors="ignore")
+            if f.name == CEILINGS_NAME:
+                ceiling_files.append(str(f))
+                for n, line in enumerate(text.splitlines(), 1):
+                    cr = ceiling_reason(line)
+                    if not cr:
+                        continue
+                    marks = sorted({m.group(0).lower()
+                                    for m in PROVENANCE_RE.finditer(cr[1])})
+                    mark = f"PROVENANCE? ({', '.join(marks)}) " if marks else ""
+                    reasons.append(f"{f}:{n}: {mark}{cr[0]}: {cr[1]}")
+            elif not md:
+                skipped["non-markdown"].append(str(f))
             heading, head_line, para = f"{f.name} (top)", 1, []
             tokens = {}
             fence = False
@@ -288,6 +322,10 @@ def fingerprint(paths):
     else:
         out.append("CROSS-TREE LITERALS: not run — one skill tree; pass every "
                    "tree of a batch in one call")
+    out.append(f"CEILINGS REASONS (ship with the skill — public text): "
+               f"{len(reasons)} in {len(ceiling_files)} files — each states "
+               f"what its file contains, never where it came from")
+    out += ["  " + r for r in reasons]
     out.append("NOT LOOKED AT — read these by hand; this report is silent about them:")
     out.append(f"  binary files: {len(skipped['binary'])}"
                + "".join("\n    " + x for x in skipped["binary"]))
@@ -324,6 +362,11 @@ def selftest():
         (t / "scripts" / "tool.py").write_text(
             '"""Tool.\n\nThis was observed once across 3 accounts.\n"""\n')
         (t / "references" / "data.csv").write_text("a,b\n1,2\n")
+        (t / "references" / "ceilings.txt").write_text(
+            "# Line ceilings, one per file.\n"
+            "# SKILL.md core_max_lines 300 the intake step\n"
+            "guide.md 120 the scoring table; a review later found three classes\n"
+            "plain.md 80\n", encoding="utf-8")
         (t / "logo.png").write_bytes(b"\x89PNG\x00\x00")
         out = "\n".join(fingerprint([str(t)]))
         # Cross-tree pass: two skill trees sharing one anecdote figure.
@@ -352,6 +395,15 @@ def selftest():
         "boundary names the table rows": "Markdown table rows: 2 in 1" in out,
         "boundary names the fenced lines": "fenced-block lines: 3 in 1" in out,
         "the report ends with its boundary": out.rstrip().endswith("reads are human"),
+        "ceilings reasons are read, the core's record included":
+            "CEILINGS REASONS (ship with the skill — public text): 2 in 1" in out
+            and "ceilings.txt:2: SKILL.md: the intake step" in out.split("NOT LOOKED")[0],
+        "a provenance word in a reason is marked, a plain reason is not":
+            "ceilings.txt:3: PROVENANCE? (a review, found, later) guide.md: the "
+            "scoring table" in out and "PROVENANCE? (" not in
+            out.split("ceilings.txt:2:")[1].split("\n")[0],
+        "ceilings.txt is not listed as not looked at":
+            "ceilings.txt" not in out.split("NOT LOOKED")[1],
         "one tree: the cross-tree pass says it did not run":
             "CROSS-TREE LITERALS: not run" in out,
         "two trees: a shared anecdote figure is listed once":

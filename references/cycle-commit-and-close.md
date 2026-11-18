@@ -55,14 +55,14 @@ REVIEW.md — the prescribed fetch form and the rewritten branch") before
 writing that branch's `REVIEW.md` instructions. Load the same section before
 any handover block: the merge moves the checked-out branch, and a line that
 rewrites history is run on a shared clone first.
-**Every branch the maintainer will review shows its commits as outgoing in
-the review clone, unasked.** A branch on origin gets the fast-forward. A
-branch not yet on origin is rebased onto the current `origin/main` in the
-sandbox before bundling, then loaded with its upstream set to
-`origin/main`; `REVIEW.md` states the outgoing count, the push is `git push
--u origin <branch>`, and the editor's Push/Sync is not used for it (same
-reference, the new-branch shape, and its stacked-line case for a line whose
-base is a `main` the maintainer pushes first).
+**Every handover is reviewable as outgoing changes in the review
+environment, unasked.** A branch on origin gets the fast-forward. A branch
+without an upstream gets step 1 first — `git push origin
+main:refs/heads/<branch>`, the remote branch created at `main` — then is
+loaded, signed and given `origin/<branch>` as its upstream; `REVIEW.md`
+states the outgoing count, and the push is the gate chained to `git push`
+(same reference, the new-branch shape, and its stacked-line case for a
+line whose base is a `main` the maintainer pushes first).
 **After a push order is handed over, the review clone is the maintainer's.**
 Before every later write to it, re-read its branch tips and `git ls-remote
 origin`; where a tip moved (re-signed or pushed), build the new commits on

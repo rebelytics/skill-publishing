@@ -204,7 +204,10 @@ the Retroactive scrub below as well.
 changed since the last published tree>` reports, never fails; its output
 is a required pre-flight artefact (item 4). A run that syncs more than
 one repo passes every changed tree in one call, so the report's
-cross-tree list is read as one set. **One-time back-sweep, the
+cross-tree list is read as one set. A repo that ships a `ceilings.txt`
+has its raise reasons diffed against the last published tree and each
+changed reason read as public text (reference, "Every file that ships is
+in scope"). **One-time back-sweep, the
 next run:** the same mode over every published repo's full current tree,
 findings fixed at the live skill (each restage with its `PENDING.md`
 entry, Workspace state), the sweep recorded in

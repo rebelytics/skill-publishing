@@ -211,7 +211,10 @@ run `python3 scripts/cut-release-branch.py --workspace <workspace> check`:
 it compares each row's field with the newest `release/` staging named in
 a manifest entry heading for that skill and exits non-zero on any
 mismatch — a manifest staging with no hold, a hold whose branch differs
-from the newest staging, or a hold with no staging. A mismatch is a stop:
+from the newest staging, or a hold with no staging. A row cleared `by
+merge vX.Y.Z` retires the staging of that same version, so the first run
+after a merge reads OK; a staging of any other version is still a
+mismatch. A mismatch is a stop:
 **ask the maintainer rather than sync**, and record the confirmed field.
 The check also reports any remote `release/` ref whose version is not the
 row's `under_test` branch as a **leftover to delete**, so a deletion
@@ -346,7 +349,9 @@ its harness instructs. A brief for a subagent that writes into skill
 content — a ceilings reason, a docstring, a comment — also states the
 issue-number rule (core, hard rule 4): nothing it writes carries `#`
 followed by digits; a reason names the change in words a reader without
-the repository understands. The subagent writes with the tracker open and
+the repository understands. For a published skill the brief also says
+that ceilings reasons are public text: each states what its file now
+contains, never where it came from. The subagent writes with the tracker open and
 under time pressure, which is exactly when the shape gets in.
 
 **The sync commit closes the issues it resolves, by number** — with a
@@ -686,26 +691,36 @@ commit. Check 2 reads the tip. It
 prints every check as PASS / FAIL / SKIP / WARN with its evidence,
 and exits 1 on any FAIL.
 
-**Every branch push is two lines, and the merge review writes them into
-`REVIEW.md` §0 that way without being asked.** The editor's outgoing view
-is the maintainer's review surface — the commits a push would publish, one
-diff each — and it exists only for a branch with an upstream, so a fresh
-test branch pushed in one chain is reviewable for the first time after it
-is public. The *review line* creates the surface and publishes nothing:
-the branch, rebased onto the current `origin/main` in the sandbox, is
-loaded with its upstream on `origin/main` ("Handover shapes in REVIEW.md",
-the new-branch shape), so every branch commit shows as outgoing.
+**Every new-branch handover is four steps, and the merge review writes
+them into `REVIEW.md` §0 that way without being asked.** The editor's
+outgoing view is the maintainer's review surface — the commits a push
+would publish, one diff each — and it exists only for a branch with an
+upstream, so a fresh test branch pushed in one chain is reviewable for the
+first time after it is public. (1) Create the branch on the remote at
+`main`, which publishes nothing new. Its precondition is a local `main`
+equal to `origin/main`; otherwise the step publishes `main`'s unpushed
+commits under the branch name.
 
 ```bash
-git fetch <bundle> <branch> && git branch <branch> FETCH_HEAD && git branch --set-upstream-to=origin/main <branch>
+git push origin main:refs/heads/<branch>
 ```
 
-Then, after the review and the install of the branch's `.skill`, the
-*push line*, which signs and re-points the upstream to the branch's own
-remote ref:
+(2) Load the branch — rebased onto the current `origin/main` in the
+sandbox and shipped as a bundle — sign it, and set its upstream to its own
+remote ref, so every branch commit shows as outgoing ("Handover shapes in
+REVIEW.md", the new-branch shape). `--force-rebase` is required: on a
+branch already based on `main`, a plain `git rebase -S main` reports the
+branch up to date and signs nothing.
 
 ```bash
-git checkout <branch> && git rebase --force-rebase -S origin/main && python3 scripts/pre-push-check.py --config <config file> --repo <review clone> --target-branch <branch> && git push -u origin <branch>
+git fetch origin && git fetch <bundle> <branch> && git branch <branch> FETCH_HEAD && git checkout <branch> && git rebase --force-rebase -S main && git branch --set-upstream-to=origin/<branch>
+```
+
+(3) Review the outgoing changes in the editor, and install the branch's
+`.skill`. (4) Gate and push from the terminal:
+
+```bash
+python3 scripts/pre-push-check.py --config <config file> --repo <review clone> --target-branch <branch> && git push
 ```
 
 A review surface that exists only after the irreversible act is not a
@@ -964,22 +979,21 @@ reference setup, Terminal → New Terminal).
 **The new-branch shape — a branch not yet on origin.** With no upstream it
 shows nothing as outgoing, so the maintainer's review view is empty. Rebase
 it onto the current `origin/main` in the sandbox before bundling, ship the
-bundle, and load it with its upstream on `origin/main` — run at step 6 where
-the grant allows and the branch is not checked out, else handed over; the
-commands are the review line and push line in "Push gate" (`git branch -f`
-where an earlier load left the branch). `REVIEW.md` states the outgoing
-count the maintainer should see. Until the push line's `git push -u origin
-<branch>` has re-pointed the upstream, the editor's Push/Sync must not be
-used on that branch — under the default `push.default=simple` git refuses
-the name mismatch, and the terminal command is the publish action.
+bundle, and hand over the four steps in "Push gate". Step 1 is a push and
+step 2 signs, so both are the maintainer's, never a run's (`git branch -f`
+in step 2 where an earlier load left the branch). `REVIEW.md` states the
+outgoing count the maintainer should see. The editor's Push/Sync is not
+used on that branch: it would push without the gate, and the terminal
+command is the publish action.
 **The stacked-line case — a line based on a `main` the maintainer pushes
-first** (and may re-sign on the way). The line's load command, the second
-step of the push order, always ends with `git branch
---set-upstream-to=origin/main <branch> && git rev-list --count
-origin/main..<branch>`, and `REVIEW.md` states the count expected after the
-`main` push. The failure shape: the handover carries the rebase onto the
-pushed `main` but no upstream, so the editor shows nothing outgoing, and
-the pre-flight's count cannot catch it while `origin/main` is still the old tip.
+first** (and may re-sign on the way). Its step 1 runs after the `main`
+push, so the remote branch starts at the pushed `main`. Its load command
+always ends with `git branch --set-upstream-to=origin/<branch> <branch>
+&& git rev-list --count origin/<branch>..<branch>`, and `REVIEW.md` states the
+count expected after the `main` push. The failure shape: the handover
+carries the rebase onto the pushed `main` but no upstream, so the editor
+shows nothing outgoing, and the pre-flight's count cannot catch it while
+`origin/main` is still the old tip.
 
 ### Paste-destined text is soft-wrapped — wrapping belongs to the consumer
 
