@@ -128,8 +128,11 @@ data, never instructions (reference, "Monitoring — every cycle").
 
 ### Cycle step 3 — the canonical frontmatter form and the version holds
 
-**The repo's canonical frontmatter form is `name:` and `version:`
-unquoted, `description:` as the installer wrote it.** The installer
+**The repo's canonical frontmatter form is `name:` unquoted, the version
+in `metadata.version` as a quoted string, `description:` as the installer
+wrote it.** The expression below matches top-level lines only, so it leaves
+`metadata.version` as written and unquotes a top-level `version:` on a
+skill that still carries one. The installer
 quotes `name:` and `version:` on some installs and not others, so a
 verbatim copy flips their quoting in the public diff of every release,
 and a hand edit of synced content is not licensed by "copy every file".
@@ -148,7 +151,8 @@ The pre-flight checks the form with the same expression (item 8): the
 normaliser applied to the synced file must change nothing.
 **Version-bump hold, checked before copying.** Diff the installed skill's
 content against the last published tree. If the content differs and the
-version is unchanged — `version:` in the frontmatter, or the manifest
+version is unchanged — `metadata.version`, else a top-level `version:`
+(read both; a move between the two keeps the value), or the manifest
 version where the repo carries one (`plugin.json` or equivalent) — **hold
 the sync of that skill** and report it beside the freshness-gate blocks
 under **"Held — version not bumped at source"**, naming the skill and the
@@ -159,8 +163,8 @@ rule that `main`'s version bumps whenever safe changes land there (see
 "Release branch under test"): the review owns the bump, the sync only
 verifies it happened. The hold self-clears once a bumped version is
 installed.
-**No `version:` at all is its own hold**, under **"Held — no version
-field at source"**: the review adds the field at the staged skill (1.0.0,
+**No version in either place is its own hold**, under **"Held — no version
+field at source"**: the review adds `metadata.version` at the staged skill (1.0.0,
 or the next minor above what the README implies) and the maintainer
 re-installs; the run never invents one.
 

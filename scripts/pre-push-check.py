@@ -116,7 +116,9 @@ are what the push publishes — each offender named by sha:
                        every occurrence of its Anchor (`{}` where the
                        number sits) in the tip's File must show Value
                        rounded down to the Round step (digits compared,
-                       separators ignored). A stale date, a differing
+                       separators ignored; a dotted version such as a
+                       launcher pin is compared per component, so 1.4.2
+                       and 14.2 differ). A stale date, a differing
                        figure, an anchor the file no longer carries, an
                        unreadable cell or a missing File refuses. SKIP
                        when there is no record or no row for this repo.
@@ -967,6 +969,21 @@ def check_license_canonical(rep, repo, commit, canonical, source):
 
 FIGURE_COLS = ("repo", "file", "anchor", "source", "value", "round", "fetched")
 FIGURE_SEPS = ",.'_   "
+# A Value cell of three or more dotted groups, not all later groups three
+# digits long, is a version (a pinned launcher's 1.4.2), never a grouped
+# count (1.234.567): it is compared component by component, because a
+# digits-only compare reads 1.4.2 and 14.2 as the same 142.
+VERSION_VALUE_RE = re.compile(r"\d+(?:\.\d+){2,}")
+
+
+def version_value(cell):
+    """The cell as a tuple of ints if it is a dotted version, else None."""
+    if not VERSION_VALUE_RE.fullmatch(cell):
+        return None
+    parts = cell.split(".")
+    if all(len(p) == 3 for p in parts[1:]):
+        return None
+    return tuple(int(p) for p in parts)
 
 
 def table_cells(line):
@@ -1039,7 +1056,8 @@ def check_readme_figures(rep, repo, commit, figures, repo_name, today,
             continue
         try:
             fetched = datetime.date.fromisoformat(row["fetched"])
-            value = int(row["value"].translate({ord(c): None for c in FIGURE_SEPS}))
+            version = version_value(row["value"])
+            value = version or int(row["value"].translate({ord(c): None for c in FIGURE_SEPS}))
             step = int(row["round"].translate({ord(c): None for c in FIGURE_SEPS}))
             if step <= 0:
                 raise ValueError("Round must be positive")
@@ -1047,9 +1065,12 @@ def check_readme_figures(rep, repo, commit, figures, repo_name, today,
             hits.append(f"{tag}: unreadable Value, Round or Fetched cell "
                         f"({row['value']!r}, {row['round']!r}, {row['fetched']!r})")
             continue
-        want = value // step * step
-        ev.append(f"  {tag}: {row['file']} `{row['anchor']}` = {want:,} "
-                  f"(value {value}, round {step}; fetched {fetched})")
+        want = value if version else value // step * step
+        shown = row["value"] if version else f"{want:,}"
+        ev.append(f"  {tag}: {row['file']} `{row['anchor']}` = {shown} "
+                  + (f"(version, compared per component; fetched {fetched})"
+                     if version else
+                     f"(value {value}, round {step}; fetched {fetched})"))
         if fetched < today:
             hits.append(f"{tag}: fetched {fetched}, older than the push day "
                         f"{today} — re-read {row['source']} uncached and "
@@ -1069,16 +1090,18 @@ def check_readme_figures(rep, repo, commit, figures, repo_name, today,
             hits.append(f"{tag}: no {row['file']} in {commit[:12]}")
             continue
         pre, post = re.sub(r"\s+", " ", row["anchor"]).split("{}")
-        num = r"(\d(?:[\d" + re.escape(FIGURE_SEPS) + r"]*\d)?)"
+        num = (r"(\d+(?:\.\d+)+)" if version else
+               r"(\d(?:[\d" + re.escape(FIGURE_SEPS) + r"]*\d)?)")
         found = list(re.finditer(re.escape(pre) + num + re.escape(post), text))
         if not found:
             hits.append(f"{tag}: anchor not found in {row['file']} — the wording "
                         "changed; update the row's Anchor with the README")
         for m in found:
-            got = int(re.sub(r"\D", "", m.group(1)))
+            got = (tuple(int(p) for p in m.group(1).split(".")) if version
+                   else int(re.sub(r"\D", "", m.group(1))))
             if got != want:
                 hits.append(f"{tag}: {row['file']} says {m.group(1)!r}, the record "
-                            f"gives {want:,}")
+                            f"gives {shown}")
     rep.result(name, "FAIL" if hits else "PASS", ev + hits)
 
 
@@ -1222,7 +1245,7 @@ def selftest():
     trailing slash beside a prose "and/or", a bare LICENSE on a Files: line
     and a file name in prose with no Files: line (check 2), a credit line
     sharing a paragraph with a Refs line (check 3), and current, stale,
-    drifted and unanchored README figures (check 8). Git
+    drifted, unanchored and version-pinned README figures (check 8). Git
     runs with the global and system config ignored, so the environment's own
     signing default cannot leak into the fixture."""
     import contextlib, io, os, tempfile
@@ -1715,6 +1738,29 @@ def selftest():
                lambda r: check_readme_figures(r, fr, fr_tip, nope, "fig-repo",
                                               today),
                {"8 readme-figures": "SKIP"}, "no figures record")
+        # A pinned launcher version: compared per component, so 14.2 in the
+        # README does not pass a record of 1.4.2 (a digits-only compare
+        # read both as 142).
+        pin = fixture_repo("pin-repo", {"README.md": "Install: `npx tool@14.2 add o/r`\n"})
+        pin_tip = git(pin, "rev-parse", "HEAD").strip()
+        pin_ok = fixture_repo("pin-ok", {"README.md": "Install: `npx tool@1.4.2 add o/r`\n"})
+        pin_ok_tip = git(pin_ok, "rev-parse", "HEAD").strip()
+
+        def pinned(repo_dir, tip, repo_cell):
+            rec.write_text(
+                "| Repo | File | Anchor | Source | Value | Round | Fetched |\n"
+                "|---|---|---|---|---|---|---|\n"
+                f"| {repo_cell} | README.md | `npx tool@{{}} add` | "
+                f"`npx tool@latest add o/r` | 1.4.2 | 1 | {today} |\n",
+                encoding="utf-8")
+            return lambda r: check_readme_figures(r, repo_dir, tip, rec,
+                                                  repo_cell, today)
+        expect("figures: a pinned version 14.2 against a record of 1.4.2 refuses",
+               pinned(pin, pin_tip, "pin-repo"), {"8 readme-figures": "FAIL"},
+               "README.md says '14.2', the record gives 1.4.2")
+        expect("figures: the pinned version as recorded passes",
+               pinned(pin_ok, pin_ok_tip, "pin-ok"), {"8 readme-figures": "PASS"},
+               "version, compared per component")
         expect("figures: a record named with --figures that is missing refuses",
                lambda r: check_readme_figures(r, fr, fr_tip, nope, "fig-repo",
                                               today, named=True),

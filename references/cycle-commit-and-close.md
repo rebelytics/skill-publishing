@@ -213,8 +213,8 @@ delegation drops every step no brief names.
    under "Blocked — install pending update first" with its staged path and a
    `REVIEW.md` note that a commit was built and discarded; any skill whose content changed
    without a version bump is listed under "Held — version not bumped at source"
-   and no version was patched in the repo; a skill with no `version:` (a
-   first inclusion of a pre-pipeline repo above all) is under "Held — no
+   and no version was patched in the repo; a skill with no version in
+   `metadata.version` or at the top level (a first inclusion of a pre-pipeline repo above all) is under "Held — no
    version field at source"; any repo with `under_test` set is
    listed under "Held — release branch under test" and was not synced; any
    skill synced from its staged copy under the gate's exception is listed

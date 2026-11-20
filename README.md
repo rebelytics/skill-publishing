@@ -19,9 +19,9 @@ Publishing or open-sourcing a skill, syncing a skill repo, creating a repo, READ
 
 Install the whole skill directory — `SKILL.md`, `references/` and `scripts/` must travel together — into your MCP-capable agent's skills directory, following the client-specific path, and restart the client. Every maintainer-specific value (identity, account, tripwire terms, exclusions, cadence) lives in a private configuration file the skill asks for on its first run.
 
-## Related
+## Requirements
 
-[`task-observer`](https://github.com/rebelytics/one-skill-to-rule-them-all) is the published companion: it runs the skill reviews whose staged copies this skill publishes, and its validator and authoring reference are cited here.
+[`task-observer`](https://github.com/rebelytics/one-skill-to-rule-them-all) is required. This skill reads and writes its observation log and staging folder, it publishes the staged copies task-observer's skill reviews produce, and it cites task-observer's validator and authoring reference.
 
 ## Contributing
 

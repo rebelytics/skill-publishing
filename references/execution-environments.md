@@ -26,7 +26,7 @@ pushes. With no cadence in the configuration, ask before the first run.
   safe-to-main changes on `main` as untagged version bumps and needs-test
   changes on the release branch. The release day's run adds the ceremony:
   the release merge with its evidence table, the tag, the GitHub release,
-  the security-scan pair and the release notes ("Release branch under test"),
+  and the release notes ("Release branch under test"),
   plus the curated-list check (`references/readme-and-counts.md`, "Curated
   lists").
 - **A carried unpushed commit is a base, not a block.** New syncs to that

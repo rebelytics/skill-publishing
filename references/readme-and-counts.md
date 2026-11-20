@@ -114,8 +114,8 @@ gate check 8 refuses a push whose pin was not checked that day:
 | <repo> | README.md | `npx <launcher>@{} add` | `npx <launcher>@latest add <owner>/<repo> --skill <skill>` | 1.4.2 | 1 | YYYY-MM-DD |
 ```
 
-Value is the pin as written and Round is 1; the gate compares digits
-only, so `1.4.2` reads as 142 and a pin of `14.2` would pass it too.
+Value is the pin as written and Round is 1; a Value of three or more dotted
+groups is a version, compared per component: a pin of `14.2` refuses against `1.4.2`.
 
 **Recommended-by intake.** Where a README carries a "Recommended by" or
 "Listed in" list, it grows whenever someone links the project, and only the

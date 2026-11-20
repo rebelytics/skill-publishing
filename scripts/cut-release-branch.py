@@ -12,7 +12,17 @@ writes are the side effects of one command, not follow-ups to remember, and
 the command refuses to run at all if any target is unwritable — a partial cut
 is the shape nothing downstream can detect.
 
-  cut   <skill> <version> <install-date>   perform the three writes
+  cut   <skill> <version> <install-date>   perform the three writes; refused
+                                           for a skill the configuration's
+                                           `test_branch_skills:` line does
+                                           not name (absent: no skill)
+  withdraw <skill> <reason>                undo a cut in one act: clear the
+                                           hold with the reason, mark the
+                                           newest manifest entry WITHDRAWN
+                                           (no `release/` token left) and
+                                           decline the test plan; refused
+                                           before any write if one of the
+                                           three is missing
   check [<skill>]                          reader side: the registry's
                                            `under_test` must equal the newest
                                            `release/` staging in the manifest;
@@ -42,7 +52,15 @@ is the shape nothing downstream can detect.
                                            registry and manifest (a Published
                                            row plus numbered candidate rows)
                                            and against fake remotes carrying
-                                           leftover release branches
+                                           leftover release branches; then
+                                           cut and withdraw in a throwaway
+                                           workspace
+
+Only the skills the configuration names get a release branch: the line
+`test_branch_skills: a, b` in <workspace>/skill-publishing/config.md
+(--config overrides), task-observer when the line or the file is absent.
+Every other skill ships each change on `main` with a version bump, so a cut
+for it is refused before anything is read or written.
 
 The registry is read in its full shape, not only the rows the check cares
 about: candidate tables key their rows by number (`| 4 | some-skill |`), and
@@ -59,8 +77,9 @@ install on Wednesday or later runs to the second Friday, so the line always
 has several real sessions behind it before the merge decision.
 
 Workspace layout assumed (override with --registry, --manifest, --obs-log,
---repos):
+--repos, --config):
   <workspace>/skill-publishing/registry.md
+  <workspace>/skill-publishing/config.md        (`test_branch_skills:` only)
   <workspace>/skill-publishing/repos/<repo>/    (review clones; `check` only)
   <workspace>/skill-updates/PENDING.md          (created if absent)
   <workspace>/skill-updates/<install-date>/<skill>/   (created if absent)
@@ -86,6 +105,11 @@ RELEASE_RE = re.compile(r"release/v(\d+\.\d+\.\d+)")
 # The version a cleared value records as merged (`cleared <date> by merge vX.Y.Z`).
 MERGED_RE = re.compile(r"\bby merge v(\d+\.\d+\.\d+)\b")
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+# The configuration line naming the skills that use release branches.
+TEST_BRANCH_RE = re.compile(r"(?m)^[ \t>*-]*`?test_branch_skills:`?[ \t]*(.*)$")
+DEFAULT_TEST_BRANCH_SKILLS = ()  # absent line: no skill gets a release branch
+# The test-plan id a cut writes into the row and the manifest entry.
+PLAN_ID_RE = re.compile(r"test plan(?: entry)?:?\s*(?:entry\s*)?\**(\d+)\**", re.I)
 SKILL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 # A registry row key that can name a skill: letter-led kebab-case. Numbered
 # candidate rows (`| 4 |`, `| 7a |`) are not skills.
@@ -128,9 +152,23 @@ reference: "release/v{version}; staging skill-updates/{install}/{skill}; registr
 
 MANIFEST_ENTRY = """## {install} — {skill} `release/v{version}` branch line — release-branch staging (cut by cut-release-branch.py)
 
-Staging anchor: `skill-updates/{install}/{skill}` — the `release/v{version}` line, installed {install}. Registry row carries `under_test: release/v{version} (since {install})` (previous value: {replaced}). Test plan: obs **#{id}** (parked; unparks for the {merge_weekday} {merge} merge review — the publishing session at least {min_days} days after install). While `under_test` is set, any staged copy of this skill seeds from the branch line, never from live.
+Staging anchor: `skill-updates/{install}/{skill}` — the `release/v{version}` line, installed {install}. Registry row carries `under_test: release/v{version} (since {install})` (previous value: {replaced}). Test plan: entry **{id}** (parked; unparks for the {merge_weekday} {merge} merge review — the publishing session at least {min_days} days after install). While `under_test` is set, any staged copy of this skill seeds from the branch line, never from live.
 
 """
+
+
+def test_branch_skills(config):
+    """(names, where they came from): the configuration's
+    `test_branch_skills:` list, or the default when the file or line is
+    absent. Names are comma- or space-separated, backticks ignored."""
+    config = pathlib.Path(config)
+    text = config.read_text(encoding="utf-8") if config.is_file() else ""
+    m = TEST_BRANCH_RE.search(text)
+    if not m:
+        why = "no test_branch_skills: line" if text else "no configuration file"
+        return set(DEFAULT_TEST_BRANCH_SKILLS), f"default ({why} at {config})"
+    names = {n for n in re.split(r"[\s,`]+", m.group(1)) if SKILL_RE.match(n)}
+    return names, f"test_branch_skills: in {config}"
 
 
 def merge_review_date(install, min_days, weekday):
@@ -184,13 +222,18 @@ def cmd_cut(a):
         sys.exit(f"FATAL: skill name {a.skill!r} is not kebab-case")
     if not VERSION_RE.match(a.version):
         sys.exit(f"FATAL: version {a.version!r} is not X.Y.Z")
+    ws = pathlib.Path(a.workspace)
+    allowed, where = test_branch_skills(a.config or ws / "skill-publishing" / "config.md")
+    if a.skill not in allowed:
+        sys.exit(f"REFUSED — no write performed: {a.skill} does not use release "
+                 f"branches ({where}: {', '.join(sorted(allowed)) or 'none'}); "
+                 f"it ships on main with a version bump")
     install = datetime.date.fromisoformat(a.install_date)
     weekday = WEEKDAYS[a.weekday.lower()]
     merge = merge_review_date(install, a.min_days, weekday)
     merge_wd = a.weekday.capitalize()
     today = datetime.date.today().isoformat()
 
-    ws = pathlib.Path(a.workspace)
     registry = pathlib.Path(a.registry or ws / "skill-publishing" / "registry.md")
     manifest = pathlib.Path(a.manifest or ws / "skill-updates" / "PENDING.md")
     anchor = ws / "skill-updates" / a.install_date / a.skill
@@ -220,7 +263,7 @@ def cmd_cut(a):
     print(f"cut {a.skill} release/v{a.version}: installed {install}, "
           f"merge review {merge_wd} {merge} (>= {a.min_days} days after install)")
     if a.dry_run:
-        print(f"dry run — would write: obs #{obs_id:04d}, {registry.name} row, "
+        print(f"dry run — would write: test-plan entry {obs_id:04d}, {registry.name} row, "
               f"{manifest}, {anchor}")
         return
 
@@ -241,7 +284,7 @@ def cmd_cut(a):
     # replaced-chain, or the field grows by one clause per cut
     replaced = re.sub(r";[^)]*\)", ")", m.group(1).strip()) if m else "none"
     new_val = (f"under_test: release/v{a.version} (since {install}; merge review "
-               f"{merge_wd} {merge}; test plan #{obs_id}; replaced: {replaced})")
+               f"{merge_wd} {merge}; test plan entry {obs_id}; replaced: {replaced})")
     if m:
         line = line[:m.start()] + new_val + line[m.end():]
     else:
@@ -269,6 +312,112 @@ def cmd_cut(a):
     manifest.write_text(text, encoding="utf-8")
     print(f"  wrote {manifest} entry; anchor {anchor}")
     print("DONE — three writes performed by one act")
+
+
+def set_frontmatter(text, fields):
+    """`text` with each `key: value` of `fields` set inside its leading
+    frontmatter block (replaced where the key exists, appended otherwise)."""
+    m = re.match(r"---\n(.*?\n)---\n", text, re.S)
+    if not m:
+        return None
+    fm = m.group(1)
+    for k, v in fields.items():
+        line = f"{k}: {v}\n"
+        fm, n = re.subn(rf"(?m)^{re.escape(k)}:.*\n", lambda _: line, fm, count=1)
+        if not n:
+            fm += line
+    return "---\n" + fm + "---\n" + text[m.end():]
+
+
+def cmd_withdraw(a):
+    """Undo a cut: the three writes of `cut`, reversed by one act."""
+    if not SKILL_RE.match(a.skill):
+        sys.exit(f"FATAL: skill name {a.skill!r} is not kebab-case")
+    reason = " ".join(a.reason.split())
+    if not reason or re.search(r"[|`*\"]", reason):
+        sys.exit("FATAL: the reason must be non-empty and free of | ` * \" "
+                 "(it is written into a table cell and a quoted field)")
+    today = datetime.date.today().isoformat()
+    ws = pathlib.Path(a.workspace)
+    registry = pathlib.Path(a.registry or ws / "skill-publishing" / "registry.md")
+    manifest = pathlib.Path(a.manifest or ws / "skill-updates" / "PENDING.md")
+    log_dir = pathlib.Path(a.obs_log or ws / "skill-observations" / "observation-log")
+
+    # --- refuse before writing anything -----------------------------------
+    problems, plan_ids = [], []
+    row = reg_lines = mline = man_lines = branch = None
+    if not registry.is_file() or not writable(registry):
+        problems.append(f"registry not writable: {registry}")
+    else:
+        reg_lines = registry.read_text(encoding="utf-8").splitlines(keepends=True)
+        row = find_row(reg_lines, a.skill)
+        m = UT_VALUE_RE.search(reg_lines[row]) if row is not None else None
+        rm = RELEASE_RE.search(m.group(1)) if m else None
+        if row is None:
+            problems.append(f"no table row for {a.skill!r} in {registry}")
+        elif not rm:
+            problems.append(f"{a.skill}: the registry row carries no release/ "
+                            f"hold to withdraw")
+        else:
+            branch = f"release/v{rm.group(1)}"
+            plan_ids += PLAN_ID_RE.findall(m.group(1))
+    if not manifest.is_file() or not writable(manifest):
+        problems.append(f"manifest not writable: {manifest}")
+    elif branch:
+        man_lines = manifest.read_text(encoding="utf-8").splitlines(keepends=True)
+        skill_rx = re.compile(r"(?:^|(?<=[\s`*(/:,]))" + re.escape(a.skill)
+                              + r"(?=[\s`*)/:,]|$)")
+        for i, l in enumerate(man_lines):
+            if l.startswith("## ") and RELEASE_RE.search(l) and skill_rx.search(l):
+                mline = i          # newest first: the first heading wins
+                break
+        if mline is None or RELEASE_RE.search(man_lines[mline]).group(0) != branch:
+            problems.append(f"{a.skill}: the newest manifest release staging is not "
+                            f"{branch} (run check first)")
+        else:
+            for l in man_lines[mline + 1:]:
+                if l.startswith("## "):
+                    break
+                plan_ids += PLAN_ID_RE.findall(l)
+    plan = None
+    ids = sorted(set(plan_ids))
+    if branch and len(ids) != 1:
+        problems.append(f"{a.skill}: the hold and the manifest entry name "
+                        f"{len(ids)} test-plan ids ({', '.join(ids) or 'none'}), "
+                        f"not one")
+    elif branch:
+        found = [p for d in (log_dir, log_dir / "archive") if d.is_dir()
+                 for p in d.glob(f"{int(ids[0]):04d}-*.md")]
+        if len(found) != 1 or not writable(found[0]):
+            problems.append(f"test plan {ids[0]}: not exactly one writable file "
+                            f"in {log_dir}")
+        else:
+            plan = found[0]
+    if problems:
+        sys.exit("REFUSED — no write performed:\n  " + "\n  ".join(problems))
+
+    plan_text = set_frontmatter(plan.read_text(encoding="utf-8"), {
+        "status": "declined", "resolved": today,
+        "resolution": f'"{a.skill}: withdrawn {today} — {reason}"'})
+    if plan_text is None:
+        sys.exit(f"REFUSED — no write performed: {plan} has no frontmatter block")
+    # (c) test plan declined
+    plan.write_text(plan_text, encoding="utf-8")
+    print(f"  wrote {plan} (status: declined)")
+    # (b) registry hold cleared, the reason in the value
+    line = reg_lines[row]
+    m = UT_VALUE_RE.search(line)
+    reg_lines[row] = (line[:m.start()] + f"under_test: cleared {today} — "
+                      f"withdrawn {branch[len('release/'):]}: {reason}" + line[m.end():])
+    registry.write_text("".join(reg_lines), encoding="utf-8")
+    print(f"  wrote {registry} row for {a.skill} (hold cleared)")
+    # (a) manifest heading: WITHDRAWN, the release/ token gone, the rest kept
+    h = man_lines[mline].rstrip("\n")
+    man_lines[mline] = ("## WITHDRAWN " + today + " — " + h[3:].replace(
+        branch, branch[len("release/"):]) + f" — withdrawn: {reason}\n")
+    manifest.write_text("".join(man_lines), encoding="utf-8")
+    print(f"  wrote {manifest} entry heading (WITHDRAWN)")
+    print(f"DONE — {a.skill} {branch} withdrawn by one act; it ships on main")
 
 
 def row_key(line):
@@ -607,8 +756,123 @@ Staging anchor: `skill-updates/CUT-DATE/beta-skill`.
             print(f"[{'PASS' if ok else 'FAIL'}] {name} (exit {got}, want {want})")
             if not ok:
                 print("        " + out.replace("\n", "\n        "))
+    failed += selftest_cut_withdraw()
     print("SELFTEST: " + ("FAILED" if failed else "all cases passed"))
     sys.exit(1 if failed else 0)
+
+
+def selftest_cut_withdraw():
+    """cut refused outside the configured list and allowed inside it; then
+    withdraw after a real cut, after which check agrees; withdraw refused
+    with nothing written when there is no hold. Returns the failure count."""
+    import contextlib, io, tempfile
+    registry = """# Registry
+
+## Published (2)
+
+| Skill | Repo | Notes |
+|---|---|---|
+| alpha-skill | `owner/alpha-skill` | clean |
+| beta-skill | `owner/beta-skill` | clean |
+"""
+
+    def run(fn, ns):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                fn(ns)
+                code = 0
+            except SystemExit as e:
+                code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+                if not isinstance(e.code, int) and e.code:
+                    print(e.code)
+        return code, buf.getvalue()
+
+    def workspace(d, config):
+        ws = pathlib.Path(d)
+        (ws / "skill-publishing").mkdir()
+        (ws / "skill-updates").mkdir()
+        (ws / "skill-observations" / "observation-log" / "archive").mkdir(parents=True)
+        (ws / "skill-publishing" / "registry.md").write_text(registry, encoding="utf-8")
+        (ws / "skill-updates" / "PENDING.md").write_text(
+            "# Staged skill updates awaiting review\n\n## OLD — unrelated entry\n\nx\n",
+            encoding="utf-8")
+        if config is not None:
+            (ws / "skill-publishing" / "config.md").write_text(config, encoding="utf-8")
+        return ws
+
+    def ns(ws, cmd, **kw):
+        base = dict(workspace=str(ws), registry=None, manifest=None, obs_log=None,
+                    repos=None, config=None, skill=None)
+        if cmd == "cut":
+            base.update(version="2.0.0", install_date="2030-01-07", min_days=3,
+                        weekday="friday", cell=3, dry_run=False)
+        base.update(kw)
+        return argparse.Namespace(**base)
+
+    failed = 0
+
+    def expect(name, ok, out=""):
+        nonlocal failed
+        failed += not ok
+        print(f"[{'PASS' if ok else 'FAIL'}] {name}")
+        if not ok:
+            print("        " + out.replace("\n", "\n        "))
+
+    with tempfile.TemporaryDirectory() as d:
+        ws = workspace(d, None)
+        code, out = run(cmd_cut, ns(ws, "cut", skill="alpha-skill"))
+        expect("cut: no config file — no skill gets a branch, alpha-skill refused",
+               code == 1 and "REFUSED — no write performed" in out
+               and "default (no configuration file" in out
+               and "ships on main" in out
+               and not list((ws / "skill-observations" / "observation-log").glob("*.md")), out)
+    with tempfile.TemporaryDirectory() as d:
+        ws = workspace(d, "# Config\n\n- `test_branch_skills:` task-observer, alpha-skill\n")
+        code, out = run(cmd_cut, ns(ws, "cut", skill="beta-skill"))
+        expect("cut: a skill outside the configured list is refused, nothing written",
+               code == 1 and "test_branch_skills: in" in out
+               and "alpha-skill, task-observer" in out
+               and "under_test" not in (ws / "skill-publishing" / "registry.md").read_text(), out)
+        code, out = run(cmd_cut, ns(ws, "cut", skill="alpha-skill"))
+        reg = (ws / "skill-publishing" / "registry.md").read_text()
+        expect("cut: a listed skill is cut (three writes)",
+               code == 0 and "DONE — three writes" in out
+               and "under_test: release/v2.0.0" in reg, out)
+        code, out = run(cmd_withdraw, ns(ws, "withdraw", skill="beta-skill",
+                                         reason="not needed"))
+        expect("withdraw: no hold on the row — refused, nothing written",
+               code == 1 and "carries no release/ hold" in out, out)
+        code, out = run(cmd_withdraw, ns(ws, "withdraw", skill="alpha-skill",
+                                         reason="a | b"))
+        expect("withdraw: a reason with a table delimiter is refused",
+               code == 1 and "free of" in out, out)
+        code, out = run(cmd_withdraw, ns(ws, "withdraw", skill="alpha-skill",
+                                         reason="maintainer decision: ships on main"))
+        reg = (ws / "skill-publishing" / "registry.md").read_text()
+        man = (ws / "skill-updates" / "PENDING.md").read_text()
+        plan = next((ws / "skill-observations" / "observation-log").glob("0001-*.md")).read_text()
+        expect("withdraw: hold cleared with the reason, manifest WITHDRAWN without "
+               "release/, test plan declined — one act",
+               code == 0 and "DONE — alpha-skill release/v2.0.0 withdrawn" in out
+               and "under_test: cleared " in reg and "withdrawn v2.0.0: maintainer decision" in reg
+               and "release/v2.0.0" not in reg.split("withdrawn")[1]
+               and "## WITHDRAWN " in man
+               and not any(l.startswith("## ") and "release/" in l for l in man.splitlines())
+               and "the `release/v2.0.0` line, installed" in man
+               and "`v2.0.0` branch line" in man and "## OLD — unrelated entry" in man
+               and "\nstatus: declined\n" in plan and "\nresolved: " in plan
+               and 'resolution: "alpha-skill: withdrawn ' in plan
+               and "\nstatus: parked\n" not in plan, out)
+        code, out = run(cmd_check, ns(ws, "check"))
+        expect("check after withdraw: registry cleared, no release staging — agree",
+               code == 0 and "[OK]   alpha-skill: registry cleared, no release staging" in out
+               and "[MISMATCH]" not in out, out)
+        code, out = run(cmd_withdraw, ns(ws, "withdraw", skill="alpha-skill",
+                                         reason="again"))
+        expect("withdraw twice: the second is refused (no hold left)",
+               code == 1 and "carries no release/ hold" in out, out)
+    return failed
 
 
 def main():
@@ -618,6 +882,9 @@ def main():
     ap.add_argument("--workspace", default=".", help="workspace root")
     ap.add_argument("--registry"); ap.add_argument("--manifest")
     ap.add_argument("--obs-log")
+    ap.add_argument("--config", help="configuration file holding the "
+                    "test_branch_skills: line (default "
+                    "<workspace>/skill-publishing/config.md)")
     ap.add_argument("--repos", help="directory of review clones, one per "
                     "skill (default <workspace>/skill-publishing/repos)")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -629,6 +896,9 @@ def main():
                    help="table cell to prepend the field to when the row has none")
     c.add_argument("--dry-run", action="store_true")
     c.set_defaults(fn=cmd_cut)
+    w = sub.add_parser("withdraw")
+    w.add_argument("skill"); w.add_argument("reason")
+    w.set_defaults(fn=cmd_withdraw)
     k = sub.add_parser("check")
     k.add_argument("skill", nargs="?")
     k.set_defaults(fn=cmd_check)

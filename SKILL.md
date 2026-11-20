@@ -1,12 +1,12 @@
 ---
 name: skill-publishing
-version: 1.11.0
-core_max_lines: 591
-description: "Publishes agent skills as open-source repositories and keeps published repos byte-identical to the installed copies. Load whenever the work involves publishing or open-sourcing a skill, the review session's publishing run, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists or candidate ranking, git bundles for review, the freshness gate (installed vs staged version), upstream drift on a published repo, issue/PR checks on skill repos, a release branch under test, folding community issues and PRs into a release, a repo awaiting its first push, or updating the pipeline's registry.md, REVIEW.md or process-record.md. Also trigger on 'publish this skill', 'sync the skill repos', 'can this go open source', 'what should we publish next', 'the publishing pipeline'."
+description: "Publishes agent skills as open-source repositories and keeps published repos byte-identical to the installed copies. Load whenever the work involves publishing or open-sourcing a skill, the review session's publishing run, syncing a skill repo, creating a repo, README or LICENSE for a skill, reviewing a diff or bundle before a push, deciding whether a skill can be open-sourced, promotion shortlists or candidate ranking, git bundles for review, the freshness gate (installed vs staged version), upstream drift on a published repo, issue/PR checks on skill repos, a release branch under test, folding community issues and PRs into a release, a repo awaiting its first push, or updating the pipeline's registry.md, REVIEW.md or process-record.md. Also trigger on 'publish this skill', 'sync the skill repos', 'can this go open source', 'what should we publish next', 'the publishing pipeline'. Requires the companion skill task-observer, whose observation log, staging and reviews this pipeline reads and writes."
 license: CC-BY-4.0
 metadata:
   author: Eoghan Henn and contributors
   source: https://github.com/rebelytics/skill-publishing
+  version: "1.12.0"
+  core_max_lines: "591"
 ---
 
 # Skill Publishing
@@ -42,7 +42,7 @@ from this core file. If you notice an episode was handled without its reference 
   running First inclusion, and before a plugin-directory submission.**
 - `references/release-branches-and-contributions.md` — the release branch
   under test (hold, the merge review on the configured release day, merge evidence,
-  the release security scan as a same-environment pair, GitHub mechanic),
+  GitHub mechanic),
   cutting a branch with `scripts/cut-release-branch.py`,
   folding contributions in via the test branch (the unattended run's three
   guards; fix the class; a PR's diff is its spec), closing keywords, the
@@ -137,10 +137,10 @@ path the user's setup pins. **Read it at the start of every run.** It supplies:
   must never reach a public artefact, plus the allowlisted domains and the
   per-repo ```` ```vendor-as-subject ```` block (`<repo-name>: term, term`).
 - **Exclusions** — skills held out of the pipeline, and why.
-- **Promotion signals** — the maintainer's own site (used for the distribution
-  boost) and any parked distribution alternatives.
-- **Promotion cap** — the most new skills taken into Phase 2 per cycle
-  (default one when the key is absent).
+- **Test-branch skills** — `test_branch_skills:`, the only skills that get release
+  branches (absent: none); every other skill ships on `main`.
+- **Promotion signals** — the maintainer's own site (used for the distribution boost) and any parked distribution alternatives.
+- **Promotion cap** — the most new skills taken into Phase 2 per cycle (default one when the key is absent).
 - **Cadence** — the review session's run days, the release day and the
   shortlist day (`references/execution-environments.md`, cadence).
 - **Contribution-response style** — the maintainer's register and reply
@@ -353,8 +353,8 @@ exceptions are in `references/execution-environments.md`.
 0. **Gates** (above): skip any published skill whose installed directory differs
    from its newest staged update, outside the gate's staged-copy exceptions, and
    flag it as "install pending update first";
-   skip any repo carrying an `under_test` field and flag it under "Held — release
-   branch under test".
+   hold the line sync of any repo carrying an `under_test` field (its classified
+   changes still land) and flag it under "Held — release branch under test".
    The `under_test` check and the harvest (`scripts/decision-harvest.py`):
    `references/cycle-gates-and-sync.md` ("Cycle step 0 — the `under_test` check and
    the decision harvest").
