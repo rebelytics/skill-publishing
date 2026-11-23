@@ -112,6 +112,18 @@ assumptions hold as written:
 - **Sandbox clone = the bridge VM's `$HOME`** — invisible to the maintainer
   and to the container, survives a bridge drop, reaches GitHub. The bundle
   copied into `bundles/` is the durable artefact, as in hard rule 1.
+  **Probe the home before the first sandbox write:** `touch
+  "$HOME/.sandbox-probe-$$" && rm "$HOME/.sandbox-probe-$$"` — the bridge
+  VM's home filesystem is shared by every session and can be full. Where
+  the probe fails, the sandbox moves to the cloud container's `$HOME`:
+  build from the installed skill where the freshness gate is green (or
+  from the staged copy staged into the container), stage in the
+  configuration file, the scan baseline and the canonical licence (passed
+  to the gate as `--license-canonical <path>`), commit the bundle into
+  `bundles/` through the bridge and compare its digest on both sides, and
+  name the deviation in the report. Set `TMPDIR` to a fresh `mktemp -d
+  /tmp/…` directory for every bridge-side script in that run: a `TMPDIR`
+  on the full filesystem breaks the scan scripts too.
 - **After any bridge drop, re-read the review clone's tip** (`git log -1
   --format=%H`) before assuming the last mount-side git command ran: a
   fast-forward in flight when the bridge dropped has silently not happened.

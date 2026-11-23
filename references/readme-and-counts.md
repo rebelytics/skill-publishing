@@ -144,11 +144,17 @@ harvested, so the run reads the store. Every run:
    decided is marked *decided — build*, never the maintainer's call, and
    carries a "Decided, awaiting build" row (cycle step 0). "No new entries"
    is a normal result and ends the step.
-4. **The maintainer picks rows.** Chosen entries land by structural splice
-   (Rendered shape, below); entries the maintainer declines go on the
-   configuration file's reject list so they never resurface. The README
-   stays authoritative for what is listed: the log is one source of two,
-   never a replacement.
+4. **Deliver the yes as an artefact, not a question.** Build the README
+   commit in the hand-over's first batch, every qualifying candidate as
+   one line the maintainer keeps or drops (structural splice, Rendered
+   shape, below), so a yes is a push. Entries the maintainer declines go
+   on the configuration file's reject list so they never resurface. The
+   README stays authoritative for what is listed: the log is one source of
+   two, never a replacement.
+5. **A candidate never drops silently.** `process-record.md` records each
+   candidate with the date it was proposed and its decision (kept,
+   declined, open). An open candidate is carried forward verbatim in every
+   regenerated `REVIEW.md`, with its commit rebuilt, until it is decided.
 
 The table is reported under Reporting item 7 and checked in pre-flight
 item 5.

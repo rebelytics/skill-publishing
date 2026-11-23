@@ -5,7 +5,7 @@ license: CC-BY-4.0
 metadata:
   author: Eoghan Henn and contributors
   source: https://github.com/rebelytics/skill-publishing
-  version: "1.12.0"
+  version: "1.13.0"
   core_max_lines: "591"
 ---
 
@@ -424,8 +424,8 @@ exceptions are in `references/execution-environments.md`.
    public commit message, then:
    `git bundle create <repo>-YYYY-MM-DD.bundle origin/main..main`, verify with
    `git bundle verify`, and copy the bundle to `skill-publishing/bundles/`.
-   Bundle timing and the per-commit gate: `references/cycle-commit-and-close.md`
-   ("Cycle step 5 — bundle immediately, gate every commit").
+   Bundle timing, the per-commit gate and the batch order of steps 5–8:
+   `references/cycle-commit-and-close.md` (step 5; "the hand-over runs in batches").
 6. **Fast-forward the review clone when possible.** If the delete-grant probe
    succeeded: `git fetch bundles/<bundle> main && git merge --ff-only FETCH_HEAD`
    in the review clone. The review environment then shows the commits as pending

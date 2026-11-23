@@ -11,13 +11,14 @@ Cross-references resolve by name through the core's Section map, and
 "above" or "below" in a moved paragraph still names the core's section of
 that name.
 
-Load triggers: cycle step 5 (bundling and the per-commit gate); cycle step 6 (the fast-forward handover forms); cycle step 7 (bare command blocks in REVIEW.md); a question about a retired convention; the end-of-run report; the pre-flight before REVIEW.md is written or anything is handed back
+Load triggers: cycle step 5 (bundling and the per-commit gate); the batch order of steps 5–8; cycle step 6 (the fast-forward handover forms); cycle step 7 (bare command blocks in REVIEW.md); a question about a retired convention; the end-of-run report; the pre-flight before REVIEW.md is written or anything is handed back
 
 ## Contents
 
 - Cycle step 5 — bundle immediately, gate every commit
 - Cycle step 6 — the handover forms for the fast-forward
 - Cycle step 7 — every command block in REVIEW.md is bare
+- Cycle steps 5–8 — the hand-over runs in batches
 - Retired conventions — do not reintroduce
 - Reporting — the run's output contract
 - Pre-flight — run before writing REVIEW.md or handing anything back
@@ -84,6 +85,29 @@ carrying `?`, `*`, `[` or `]` is single-quoted (`--format='%G?'`; zsh
 aborts on an unmatched glob), checked by `scripts/pre-push-check.py
 --lint-commands REVIEW.md` before handover, and order-dependent
 steps are `&&`-chained (reference, "Push gate", command-block rules).
+
+### Cycle steps 5–8 — the hand-over runs in batches
+
+**Prepare one batch, stop with its commands, prepare the next while the
+maintainer pushes.** A hand-over built whole makes the reviewer wait for
+the slowest repo, and a run interrupted mid-build leaves half-recorded
+state (a hold written with no branch behind it). Steps 5–8 therefore run
+per batch, in this order:
+
+1. new repos (first pushes);
+2. the hub repo whose catalogue lists them;
+3. every other release, the publishing skill's own repo first;
+4. new test branches last.
+
+Each batch is built, gated and bundled on its own, and closes its
+bookkeeping (registry row, manifest entry, process record) before it is
+handed over. `REVIEW.md` gets that batch's bare commands followed by the
+line `Stop — tell Claude when pushed.`; the next batch starts only after
+that line is written, and is prepared while the maintainer pushes. A batch
+with nothing in it is skipped, not announced. An unattended run builds
+every batch in this order and hands them over together, each still
+closed and still followed by its stop line, so the maintainer pushes in
+the same order when he arrives.
 
 ### Retired conventions — do not reintroduce
 
