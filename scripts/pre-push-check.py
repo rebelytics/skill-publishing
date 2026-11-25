@@ -135,7 +135,19 @@ Usage:
   pre-push-check.py --draft-thanks A..B [--repo DIR] [--config CONFIG.md]
   pre-push-check.py --lint-commands REVIEW.md [FILE ...]
   pre-push-check.py --lint-commands=inline REVIEW.md [FILE ...]
+  pre-push-check.py --lint-reply BODY.md [BODY.md ...]
   pre-push-check.py --selftest
+
+Reply lint (--lint-reply) reads each named file as the exact text of one
+public reply, the file the post command then sends, and refuses (exit 1) a
+weekday, a relative time (tomorrow, next week, end of the month, in three
+days), a day and month written without a year, and any date in the
+confidentiality scan's shapes (read from confidentiality_scan.py beside this
+script) that is not wholly past. A reply names the mechanism ("when the
+branch merges", "in the next release"), never the day; a past date that is
+a fact stays allowed. Chain it to the post on the same file —
+`--lint-reply body.md && gh api ... -F body=@body.md` — so text edited at
+posting time is linted too.
 
 Lint mode (--lint-commands) reads only the named files: in every fenced
 shell block (untagged, bash, sh, zsh, shell, console) an argument carrying
@@ -1230,6 +1242,67 @@ def check_command_blocks(rep, paths, inline=False):
                    ev + span_hits)
 
 
+REPLY_WEEKDAY_RE = re.compile(
+    r"\b(?:mon|tues|wednes|thurs|fri|satur|sun)days?\b", re.I)
+REPLY_RELATIVE_RE = re.compile(
+    r"\b(?:tomorrow|tonight|later today|the day after|"
+    r"(?:this|next|coming) (?:week|weekend|month|quarter|year)|"
+    r"end of (?:the )?(?:day|week|month|quarter)|"
+    r"(?:in|within) (?:a|an|a few|a couple of|\d+|two|three|four|five) "
+    r"(?:days?|weeks?|months?))\b", re.I)
+_MON = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?"
+# A day and month with no year cannot be told past from future: always a hit.
+# `may` before a number is too often the verb, so month-first skips it.
+REPLY_DAY_MONTH_RE = re.compile(
+    r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?" + _MON + r"(?!\s*,?\s*20\d{2})(?![a-z])"
+    r"|\b(?!may\b)" + _MON + r"\s+\d{1,2}(?:st|nd|rd|th)?\b(?!\s*,?\s*20\d{2})", re.I)
+
+
+def load_scan_module():
+    """confidentiality_scan.py beside this script: its DATE_SHAPES and
+    elapsed() are the one source of the date shapes. None when absent."""
+    import importlib.util
+    p = pathlib.Path(__file__).resolve().parent / "confidentiality_scan.py"
+    if not p.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location("confidentiality_scan_shapes", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def check_reply_text(rep, paths, today=None):
+    """Reply lint: each file is the exact text of one reply about to be
+    posted. A weekday, a relative time, a yearless day and month, or a date
+    that is not wholly past refuses."""
+    today = today or datetime.date.today()
+    scan = load_scan_module()
+    if scan is None:
+        rep.result("lint reply", "FAIL", ["confidentiality_scan.py not found beside "
+                                          "this script: the date shapes cannot be read"])
+        return
+    shapes = [(n, re.compile(p, re.I)) for n, p in scan.DATE_SHAPES]
+    hits, past = [], 0
+    for p in paths:
+        text = pathlib.Path(p).read_text(encoding="utf-8", errors="replace")
+        for no, line in enumerate(text.splitlines(), 1):
+            where = f"{p}:{no}"
+            for kind, rx in (("weekday", REPLY_WEEKDAY_RE), ("relative", REPLY_RELATIVE_RE),
+                             ("day-month", REPLY_DAY_MONTH_RE)):
+                for m in rx.finditer(line):
+                    hits.append(f"{where}: [{kind}] {m.group(0)!r} in: {line.strip()[:100]}")
+            for name, rx in shapes:
+                for m in rx.finditer(line):
+                    if scan.elapsed(name, m.group(0), today):
+                        past += 1
+                    else:
+                        hits.append(f"{where}: [date:{name}] {m.group(0)!r} is not past, "
+                                    f"in: {line.strip()[:100]}")
+    ev = [f"replies read: {len(paths)}; past dates allowed: {past}; hits: {len(hits)} "
+          "— name the mechanism (when the branch merges, in the next release), never the day"]
+    rep.result("lint reply", "FAIL" if hits else "PASS", ev + hits)
+
+
 def selftest():
     """Fixture repos for the multi-commit release, the AI-tool trailer rule
     (maintainer vs contributor vs already on origin), vendor-as-subject, the
@@ -1838,6 +1911,41 @@ def selftest():
               f"refusal (block hit: {rep.failed}; inline hit alone: {rep2.failed})")
         if not ok:
             fails.append("inline: only the block rule sets the refusal")
+
+        # Reply lint: the exact posted string, judged against a fixed today.
+        # Dated fixtures are built at run time, so this script, itself skill
+        # content, does not carry the shapes the tree scan looks for.
+        today = datetime.date(2026, 6, 15)
+        yr = str(today.year)
+
+        def reply(text):
+            f = pathlib.Path(d, "body.md")
+            f.write_text(text, encoding="utf-8")
+            return lambda r: check_reply_text(r, [str(f)], today)
+        expect("reply: a weekday is refused, possessive included",
+               reply("Thanks! This ships with Friday's merge.\n"),
+               {"lint reply": "FAIL"}, "[weekday] 'Friday'")
+        expect("reply: the mechanism with its version passes",
+               reply("Thanks! This ships with the merge, in v2.4.0.\n"),
+               {"lint reply": "PASS"}, "hits: 0")
+        expect("reply: a relative time is refused",
+               reply("It lands next week, after the test period.\n"),
+               {"lint reply": "FAIL"}, "[relative] 'next week'")
+        expect("reply: a past ISO date passes, a future one is refused",
+               reply(f"Released {yr}-06-10. The merge is due {yr}-06-19.\n"),
+               {"lint reply": "FAIL"}, "past dates allowed: 1; hits: 1")
+        expect("reply: a future quarter is refused, a past one passes",
+               reply(f"Shipped in Q1 {yr}; the rest follows in Q3 {yr}.\n"),
+               {"lint reply": "FAIL"}, f"[date:quarter] 'Q3 {yr}' is not past")
+        expect("reply: a day and month with no year is refused",
+               reply("Expect it on 4 December, or by Dec 4th.\n"),
+               {"lint reply": "FAIL"}, "hits: 2")
+        expect("reply: 'may' as a verb before a number is not a date",
+               reply("This may 2x the scan time on large trees.\n"),
+               {"lint reply": "PASS"}, "hits: 0")
+        expect("reply: a day, month and year in the past passes",
+               reply(f"It shipped on 3 May {yr}.\n"),
+               {"lint reply": "PASS"}, "past dates allowed: 1; hits: 0")
     print("SELFTEST: " + (f"FAILED ({len(fails)})" if fails else "all cases passed"))
     sys.exit(1 if fails else 0)
 
@@ -1853,6 +1961,10 @@ def main():
                          "them in inline code spans (never a refusal)")
     ap.add_argument("--lint-inline", action="store_true",
                     help="what --lint-commands=inline sets")
+    ap.add_argument("--lint-reply", nargs="+", metavar="FILE",
+                    help="reply lint: refuse a weekday, a relative time, a yearless "
+                         "day and month or a date not yet past in the exact text "
+                         "of each reply file about to be posted")
     ap.add_argument("--repo", default=".")
     ap.add_argument("--commit", default="HEAD", help="commit to gate (default HEAD)")
     ap.add_argument("--target-branch", default="main")
@@ -1897,6 +2009,12 @@ def main():
         print("RESULT: " + ("REFUSED — quote before handover" if rep.failed
                             else "clear to hand over"))
         sys.exit(1 if rep.failed else 0)
+    if a.lint_reply:
+        rep = Report()
+        check_reply_text(rep, a.lint_reply)
+        print("RESULT: " + ("REFUSED — reword in the drafts file, re-lint, then post "
+                            "this file" if rep.failed else "clear to post"))
+        sys.exit(1 if rep.failed else 0)
     if a.draft_thanks:
         repo = pathlib.Path(a.repo)
         commits = git(repo, "rev-list", a.draft_thanks).split()
@@ -1911,8 +2029,8 @@ def main():
         print(line or "(no credit trailers in range: no Thanks line)")
         sys.exit(0)
     if not a.config:
-        ap.error("--config is required (except with --lint-commands "
-                 "or --draft-thanks)")
+        ap.error("--config is required (except with --lint-commands, "
+                 "--lint-reply or --draft-thanks)")
 
     repo = pathlib.Path(a.repo)
     sha = git(repo, "rev-parse", a.commit).strip()

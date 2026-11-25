@@ -107,7 +107,7 @@ SKILL_CONTENT_DIRS = {"references", "scripts"}
 # Drafts files: public replies written before posting, judged for future
 # dates rather than for any date.
 DRAFTS_NAMES = {"replies.md", "prefill.json"}
-FUTURE_SHAPES = ("iso", "dmy", "mon-year")
+FUTURE_SHAPES = ("iso", "dmy", "mon-year", "quarter")
 MONTHS = {m: i for i, m in enumerate(
     ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct",
      "nov", "dec"), 1)}
@@ -141,6 +141,9 @@ def elapsed(shape, text, today):
         candidates = [(y, b, a), (y, a, b)]
     elif shape == "mon-year":
         return (nums[0], MONTHS[text[:3].lower()]) < (today.year, today.month)
+    elif shape == "quarter":
+        q, y = nums
+        return (y, q) < (today.year, (today.month - 1) // 3 + 1)
     else:
         return False
     for y, m, d in candidates:
@@ -436,8 +439,8 @@ def selftest():
         (t / "LICENSE").write_text(f"MIT {r2026}\n", encoding="utf-8")
         drafts = pathlib.Path(d, "replies.md")
         drafts.write_text("Shipped in v1.2.0, released 2026-06-10 (13/06/2026, "
-                          "May 2026).\nThe merge review is on 2026-06-19.\n"
-                          "Planned for 19/06/2026, i.e. June 2026.\n"
+                          "May 2026, Q1 2026).\nThe merge review is on 2026-06-19.\n"
+                          "Planned for 19/06/2026, i.e. June 2026, Q2 2026.\n"
                           f"Also fixed {r289}.\n", encoding="utf-8")
         plain = scan([str(t)], ["acmeclient"], [], dates=False, today=today)
         dated = scan([str(t)], ["acmeclient"], [], dates=True, today=today)
@@ -463,12 +466,16 @@ def selftest():
             plain["skill_files"] == 3 and len(plain["new"]) == 4,
         "a date in skill content is a hit under --dates whatever its age":
             any("[date:iso] Verified 2026-06-10" in h for h in dated["new"]),
-        "drafts: elapsed iso, dmy and mon-year dates pass":
-            drafted["past_ok"] == 3,
-        "drafts: future iso, dmy and mon-year dates are defects":
+        "drafts: elapsed iso, dmy, mon-year and quarter dates pass":
+            drafted["past_ok"] == 4,
+        "drafts: future iso, dmy, mon-year and quarter dates are defects":
             sorted(h.split("[future-date:")[1].split("]")[0]
                    for h in drafted["new"] if "[future-date:" in h)
-            == ["dmy", "iso", "mon-year"],
+            == ["dmy", "iso", "mon-year", "quarter"],
+        "elapsed: the current quarter is not elapsed, the one before is":
+            not elapsed("quarter", "Q2 2026", today)
+            and elapsed("quarter", "Q1 2026", today)
+            and not elapsed("quarter", "Q1 2027", today),
         "drafts: an issue reference in a reply is not a hit":
             not any("[issue-ref:" in h for h in drafted["new"]),
         "drafts: without --dates no date is read":

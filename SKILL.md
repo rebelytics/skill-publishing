@@ -5,7 +5,7 @@ license: CC-BY-4.0
 metadata:
   author: Eoghan Henn and contributors
   source: https://github.com/rebelytics/skill-publishing
-  version: "1.13.0"
+  version: "1.14.0"
   core_max_lines: "591"
 ---
 

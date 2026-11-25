@@ -61,7 +61,14 @@ skill, compare the installed directory (skills mount) against the newest
 staged directory under `skill-updates/*/<skill>/` (full recursive diff, or
 two-shell checksums when bridged); where they differ, **do NOT sync that
 skill** — list it under **"Blocked — install pending update first"** with
-its staged path. It self-clears once the maintainer installs the update.
+its staged path — **unless one of the two staged-copy exceptions holds**
+(attended, with the maintainer present; or unattended, the copy being the
+newest staging of the review that opened this session): then list it under
+**"Install before push"** and build it (the conditions in full:
+`references/execution-environments.md`, "Two exceptions"). Blocked
+self-clears once the maintainer installs the update. **The gate prints one
+verdict per skill** — in sync, Install before push (naming the exception),
+Blocked, or Unverifiable — so the report shows which branch decided it.
 **A third outcome — the installed side could not be read** (a refused or
 failed read): hold every skill under **"Unverifiable — installed side could
 not be read"**, naming the refused command and the reason given, and hand a
@@ -111,7 +118,11 @@ three source flags read all of these. Write them into a
 `REVIEW.md` section **"Decided, awaiting build"** — the harvest's output; a
 table built by hand from recall or the previous `REVIEW.md` fails the
 pre-flight like a missing row. One row per item, with its status: *built this
-run*, *on branch X* or *blocked by Y*. Where the harvest and `registry.md`
+run*, *on branch X* or *blocked by Y*. A row marked *built this run* whose
+source is an observation gets that observation's status in the same command
+(the companion's `scripts/set-fields.sh`, chained before the row is
+written), its remainder carried where only part was built — never the row
+alone, which the next review cannot see. Where the harvest and `registry.md`
 disagree about an item, the registry row wins and the harvest row says so. A
 harvested item with no row fails the pre-flight (item 14).
 **Every hold is re-checked, never trusted.** A `registry.md` hold row names
