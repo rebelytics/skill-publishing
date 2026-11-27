@@ -498,13 +498,28 @@ def manifest_release_stagings(manifest, skills):
     for l in manifest.read_text(encoding="utf-8").splitlines():
         if not l.startswith("## "):
             continue
-        rm = RELEASE_RE.search(l)
-        if not rm:
+        rels = list(RELEASE_RE.finditer(l))
+        if not rels:
             continue
+        # where each skill is named in the heading
+        named = []
         for s in skills:
-            if re.search(r"(?:^|(?<=[\s`*(/:,]))" + re.escape(s)
-                         + r"(?=[\s`*)/:,]|$)", l) and s not in out:
-                out[s] = f"release/v{rm.group(1)}"
+            for m in re.finditer(r"(?:^|(?<=[\s`*(/:,]))" + re.escape(s)
+                                 + r"(?=[\s`*)/:,]|$)", l):
+                named.append((m.start(), s))
+        named.sort()
+        # a release/ token binds only to the skill named nearest before it;
+        # a heading naming one skill binds every token to that skill
+        for rm in rels:
+            before = [s for pos, s in named if pos < rm.start()]
+            if before:
+                owner = before[-1]
+            elif len({s for _, s in named}) == 1:
+                owner = named[0][1]
+            else:
+                continue
+            if owner not in out:
+                out[owner] = f"release/v{rm.group(1)}"
     return out
 
 
@@ -729,7 +744,12 @@ Staging anchor: `skill-updates/CUT-DATE/beta-skill`.
               "different version is a mismatch", registry,
               manifest + retired.replace("v1.1.0", "v1.2.0"), 1, {},
               ["[MISMATCH] beta-skill: manifest names release/v1.2.0 but "
-               "registry under_test is cleared by merge v1.1.0"], [])]
+               "registry under_test is cleared by merge v1.1.0"], []),
+             ("multi-skill heading: a release/ token binds only to the skill "
+              "named before it, so the other skill reads no staging",
+              registry.replace("| beta-skill |", "| epsilon-skill | `owner/epsilon-skill` | published |\n| beta-skill |"),
+              "## LATER — epsilon-skill 1.4.0 + alpha-skill `release/v3.4.0` line\n\n" + manifest,
+              0, {}, [], ["[MISMATCH] epsilon-skill"])]
     failed = 0
     for name, reg, man, want, remotes, must, must_not in cases:
         with tempfile.TemporaryDirectory() as d:

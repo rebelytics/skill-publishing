@@ -96,7 +96,12 @@ yet installed.
 compares each row's field with the newest `release/` staging in the
 manifest and exits non-zero on a mismatch (a staging with no hold, a hold
 naming another branch) — **stop and ask the maintainer rather than sync**,
-and record the field once confirmed. The same check names any remote
+and record the field once confirmed. **The stop holds for that repo only,
+and only the maintainer lifts it:** no commit is built for it, every other
+repo proceeds, and the report's first line names the stopped repo with the
+check's output and any evidence the run believes refutes it. An unattended
+run never overrides a stop it judges false — a stop it may override is
+advice, and the day the mismatch is real is the day it is skipped. The same check names any remote
 `release/` ref whose version is not the row's branch as a leftover to
 delete (reference, "Cutting a release branch", reader side).
 **Harvest the decisions routed to this run — by script, never from recall:**

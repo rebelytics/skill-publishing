@@ -5,8 +5,8 @@ license: CC-BY-4.0
 metadata:
   author: Eoghan Henn and contributors
   source: https://github.com/rebelytics/skill-publishing
-  version: "1.14.0"
-  core_max_lines: "591"
+  version: "1.15.0"
+  core_max_lines: "592"
 ---
 
 # Skill Publishing
@@ -363,10 +363,11 @@ exceptions are in `references/execution-environments.md`.
    ordinary member of the roster. Load `references/promotion-and-first-publication.md`
    before running First inclusion, and `references/release-branches-and-contributions.md`
    before deciding what to do with a repo that carries `under_test`.
-1. **Fetch** each published repo; check whether `origin/main` has moved. **Skip
-   fetch and drift entirely for repos at `awaiting-first-push`** — their `origin`
-   points at a GitHub repo that does not exist yet, so `git fetch origin` fails
-   there and the failure reads like drift or an error.
+1. **Fetch** each published repo; check whether `origin/main` has moved. **No
+   fetch or drift for repos at `awaiting-first-push`** — `git fetch` fails on a
+   repo not yet created — but `git ls-remote` each one: a remote that answers is
+   **registry drift** (pushed outside a session), corrected in this run and
+   named in the report's first line.
    Compare every other clone's local refs with `git ls-remote origin`: a ref
    ahead of origin with no Push order block in `REVIEW.md` is a **lost
    handover**, named in the report's first line.

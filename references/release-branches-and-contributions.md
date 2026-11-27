@@ -208,8 +208,9 @@ mismatch — a manifest staging with no hold, a hold whose branch differs
 from the newest staging, or a hold with no staging. A row cleared `by
 merge vX.Y.Z` retires the staging of that same version, so the first run
 after a merge reads OK; a staging of any other version is still a
-mismatch. A mismatch is a stop:
-**ask the maintainer rather than sync**, and record the confirmed field.
+mismatch. A mismatch is a stop for that repo only (cycle step 0, the
+scope of a stop): **ask the maintainer rather than sync**, and record the
+confirmed field.
 The check also reports any remote `release/` ref whose version is not the
 row's `under_test` branch as a **leftover to delete**, so a deletion
 skipped at the merge surfaces at the next step 0 rather than never. It

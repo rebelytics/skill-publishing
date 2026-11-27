@@ -50,7 +50,12 @@ pushes. With no cadence in the configuration, ask before the first run.
   on origin (`git ls-remote origin` against the bundled tips) and only then
   sends, by the route the configuration names (Responding, step 3). A push
   made after the session ended is picked up by the next run's first step:
-  verify on origin, then send the carried drafts.
+  verify on origin, then send the carried drafts. **The verification writes
+  the registry in the same command:** `git ls-remote` chained (`&&`) to the
+  edit of each pushed repo's row (status, version, SHA), with the
+  `## Published (N)` heading recounted from the table rows in that edit,
+  never hand-kept. Pushes happen outside any session, so a check that does
+  not write leaves a live repo reading `awaiting-first-push`.
 - **New-skill publication is its own task on the release day.** The Phase 1
   shortlist goes into the shortlist day's report; the session records the
   maintainer's pick in `registry.md`, where the publication task reads it,
